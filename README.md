@@ -38,11 +38,11 @@ Performance and Latency
 
 Boot Latency
 
-The model server loads the model once at startup and performs a warm-up forward pass.
-The following logs show the boot latency for each model.
+The model server loads the model once at startup and performs an initial warm-up pass.
+The measured boot latency (model loading + warm-up) for each model is summarized below.
 
-INFO: [BOOT] Loaded: Salesforce/blip-image-captioning-base on cuda in 5.6 s (5,646 ms)
-INFO: [BOOT] Loaded: Salesforce/instructblip-flan-t5-xl on cuda in 11.6 s (11,567 ms)
+- BLIP (Salesforce/blip-image-captioning-base): 5.6 s (5,646 ms)
+- InstructBLIP (Salesforce/instructblip-flan-t5-xl): 11.6 s (11,567 ms)
 
 ------------------------------------------------------------
 
