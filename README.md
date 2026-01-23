@@ -15,6 +15,7 @@ Repository Structure
 - model_serve.py: Model server (loads and serves the model)
 - client.py: Batch inference client
 - config.py: Centralized configuration
+- utils.py: Utility functions
 
 ------------------------------------------------------------
 HTTP API
