@@ -33,6 +33,56 @@ POST /done
 - Optional notification that all inference requests are completed
 
 ------------------------------------------------------------
+Performance and Latency
+------------------------------------------------------------
+
+Boot Latency
+
+The model server loads the model once at startup and performs a warm-up forward pass.
+The following logs show the boot latency for each model.
+
+INFO: [BOOT] Loaded: Salesforce/blip-image-captioning-base on cuda in 5.6 s (5,646 ms)
+INFO: [BOOT] Loaded: Salesforce/instructblip-flan-t5-xl on cuda in 11.6 s (11,567 ms)
+
+------------------------------------------------------------
+
+Captioning Outputs and Timing Records
+
+- Captioning results can be found in the JSON files under the output directory.
+- Per-image timing results (preprocess / forward / postprocess) are stored separately
+  in the timing files under the same directory.
+
+------------------------------------------------------------
+
+Image Captioning Latency (500 Images)
+
+The following results are measured on 500 images
+(approximately 10% of the COCO 2017 validation dataset).
+
+All values are reported in milliseconds (ms) and represent per-image average latency.
+
+BLIP
+- Preprocess: 7.32 ms
+- Forward: 642.52 ms
+- Postprocess: 0.73 ms
+
+InstructBLIP
+- Preprocess: 5.90 ms
+- Forward: 1911.82 ms
+- Postprocess: 5.05 ms
+
+------------------------------------------------------------
+
+GPU Memory Usage (Warm State)
+
+GPU memory usage is measured after the model is fully loaded and warmed up.
+
+GPU: NVIDIA TITAN V (12 GiB VRAM)
+
+- BLIP: 920 MiB
+- InstructBLIP: 10,682 MiB
+
+------------------------------------------------------------
 Notes
 ------------------------------------------------------------
 
