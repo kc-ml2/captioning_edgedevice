@@ -5,6 +5,7 @@ from typing import List, Dict, Any
 import requests
 from tqdm import tqdm
 from pycocotools.coco import COCO
+from utils import save_timing_debug
 
 
 def main():
@@ -16,7 +17,7 @@ def main():
     
     # Prompt and decoding settings are fixed on the model server.
     parser.add_argument("--server_url", type=str, default="http://127.0.0.1:8600/inference")
-    parser.add_argument("--timeout", type=int, default=10)
+    parser.add_argument("--timeout", type=int, default=10)  # seconds
 
     args = parser.parse_args()
 
@@ -34,6 +35,7 @@ def main():
         img_ids = img_ids[: args.limit]
 
     preds: List[Dict[str, Any]] = []
+    pre_times, forward_times, post_times = [], [], []
     session = requests.Session()
 
     # ---- server health check (ensure model is loaded and warm) ----
@@ -61,7 +63,12 @@ def main():
                 timeout=60
             )
             r.raise_for_status()
-            caption = r.json()["caption"]
+            resp = r.json()
+            caption = resp["caption"]
+            tms = resp["timings_ms"]
+            pre_times.append(tms["preprocess_ms"])
+            forward_times.append(tms["forward_ms"])
+            post_times.append(tms["post_ms"])
 
         preds.append({"image_id": int(img_id), "caption": caption})
 
@@ -70,9 +77,18 @@ def main():
         json.dump(preds, f, ensure_ascii=False, indent=2)
         f.write("\n")
     
+    save_timing_debug(
+        pre_times=pre_times,
+        forward_times=forward_times,
+        post_times=post_times,
+        out_npz=os.path.join(args.save_dir, "timing_debug.npz"),
+        out_csv=os.path.join(args.save_dir, "timing_debug.csv"),
+    )
+    
     # ---- notify server that all requests are completed ----
     done_url = args.server_url.replace("/inference", "/done")
-    session.post(done_url, timeout=args.timeout)
+    dr = session.post(done_url, timeout=args.timeout)
+    dr.raise_for_status()
     print("[DONE] predictions:", pred_json)
 
 

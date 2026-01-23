@@ -142,19 +142,32 @@ async def inference(
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid image: {e}")
 
+    t0 = time.perf_counter()
+
     # 2) preprocess
     inputs = _prepare_inputs(
         img=image, 
         text=DEFAULT_PROMPT if USE_PROMPT else None
     )
+    t1 = time.perf_counter()
 
-    # 3) generate
+    # 3) forward
     with torch.inference_mode():
         with torch.autocast(device_type="cuda", dtype=TORCH_DTYPE):
             out = model.generate(**inputs, **GEN_KWARGS)
+    t2 = time.perf_counter()
 
+    # 4) postprocess
     caption = processor.batch_decode(out, skip_special_tokens=True)[0].strip()
-    return {"caption": caption}
+    t3 = time.perf_counter()
+
+    timings_ms = {
+        "preprocess_ms": (t1 - t0) * 1000,
+        "forward_ms": (t2 - t1) * 1000,
+        "post_ms": (t3 - t2) * 1000,
+    }
+
+    return {"caption": caption, "timings_ms": timings_ms}
 
 # Called by the client once after all inference requests are completed.
 @app.post("/done")
