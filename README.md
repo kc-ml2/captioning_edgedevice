@@ -12,9 +12,9 @@ loading and is suitable for batch inference workloads.
 Repository Structure
 ------------------------------------------------------------
 
-- model_serve.py   Model server (loads and serves the model)
-- client.py        Batch inference client
-- config.py        Centralized configuration
+- model_serve.py: Model server (loads and serves the model)
+- client.py: Batch inference client
+- config.py: Centralized configuration
 
 ------------------------------------------------------------
 HTTP API
