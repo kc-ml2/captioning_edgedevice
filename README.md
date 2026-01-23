@@ -33,7 +33,7 @@ POST /done
 - Optional notification that all inference requests are completed
 
 ------------------------------------------------------------
-Performance and Latency
+Performance and Latency (FP16 / No Quantization)
 ------------------------------------------------------------
 
 Boot Latency
