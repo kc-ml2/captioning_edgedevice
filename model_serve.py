@@ -113,16 +113,6 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Model Server", lifespan=lifespan)
 
 # ---- API endpoints ----
-'''
-@app.get("/path"):
-  Register a function as a handler for HTTP GET requests to the given path.
-  The function is called whenever a client sends a GET request to this endpoint.
-
-@app.post("/path"):
-  Register a function as a handler for HTTP POST requests to the given path.
-  The function is called whenever a client sends a POST request to this endpoint.
-'''
-
 # Expose runtime and GPU status for health checks and monitoring
 @app.get("/health")
 def health():
@@ -161,7 +151,7 @@ async def inference(
     # 3) generate
     with torch.inference_mode():
         with torch.autocast(device_type="cuda", dtype=TORCH_DTYPE):
-            out = model.generate(**inputs, **GEN_KWARGS,)
+            out = model.generate(**inputs, **GEN_KWARGS)
 
     caption = processor.batch_decode(out, skip_special_tokens=True)[0].strip()
     return {"caption": caption}

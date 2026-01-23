@@ -1,13 +1,3 @@
-'''
-GET:
-Read-only HTTP request used to retrieve server state or metadata.
-It does not modify server state and is typically used for health checks or status queries.
-
-POST:
-HTTP request used to send data to the server and trigger processing or an action.
-It may involve computation, state changes, or event notifications.
-'''
-
 # client.py
 import os, json, argparse
 from typing import List, Dict, Any
