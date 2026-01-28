@@ -24,11 +24,11 @@ def main():
     # ---- dataset paths ----
     img_dir = os.path.join(args.coco_root, "val2017")
     gt_json = os.path.join(args.coco_root, "annotations", "captions_val2017.json")
-    time_csv = os.path.join(args.save_dir, "timing_debug_int4.csv")
 
     os.makedirs(args.save_dir, exist_ok=True)
     pred_json = os.path.join(args.save_dir, "predictions_blip.json")
-
+    time_csv = os.path.join(args.save_dir, "timing_debug_int4.csv")
+    
     # ---- load COCO annotations ----
     coco = COCO(gt_json)
     img_ids = sorted(coco.getImgIds())
