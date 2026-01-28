@@ -1,5 +1,6 @@
 # config.py
 from enum import Enum
+import torch
 
 # ---- server config ----
 HOST = "127.0.0.1"
@@ -11,7 +12,7 @@ class ModelFamily(str, Enum):
     INSTRUCTBLIP = "instructblip"
 
 # Change only this line to switch the active model family
-MODEL_FAMILY = ModelFamily.BLIP
+MODEL_FAMILY = ModelFamily.INSTRUCTBLIP
 
 MODEL_ID_MAP = {
     ModelFamily.BLIP: "Salesforce/blip-image-captioning-base",
@@ -34,6 +35,10 @@ DTYPE_CONFIG = {
     "int8":    {"mode": InferMode.INT8, "torch_dtype": None},
     "int4":    {"mode": InferMode.INT4, "torch_dtype": None},
 }
+
+INFER_MODE = DTYPE_CONFIG[DTYPE]["mode"]
+TORCH_DTYPE = DTYPE_CONFIG[DTYPE]["torch_dtype"]
+
 
 # ---- generation config ----
 DEFAULT_PROMPT = (
