@@ -8,6 +8,8 @@ from PIL import Image
 
 from transformers import InstructBlipProcessor, InstructBlipForConditionalGeneration
 from transformers import BlipProcessor, BlipForConditionalGeneration
+from transformers import BitsAndBytesConfig
+from check_VRAM import _cuda_mem_snapshot, _cuda_mem_reset
 
 # ---- configuration ----
 from config import (
@@ -16,7 +18,9 @@ from config import (
     ModelFamily,
     MODEL_FAMILY,
     MODEL_ID,
-    DTYPE,
+    InferMode,
+    INFER_MODE,
+    TORCH_DTYPE,
     DEFAULT_PROMPT,
     GEN_KWARGS,
 )
@@ -30,8 +34,8 @@ _loaded = False  # Ensures _load_once() runs only once per process.
 # BLIP runs without a prompt because it has no LLM, while InstructBLIP requires one.
 USE_PROMPT = (MODEL_FAMILY == ModelFamily.INSTRUCTBLIP)
 
-# Select torch.dtype for CUDA inference (FP16 or FP32)
-TORCH_DTYPE = torch.float16 if DTYPE.lower() == "float16" else torch.float32
+# Whether to use bitsandbytes quantized loading (INT8 / INT4)
+USE_BNB_QUANT = (INFER_MODE in (InferMode.INT8, InferMode.INT4))
 
 # ---- helpers ----
 # Prepare model inputs from the image and optional prompt
@@ -69,16 +73,35 @@ def _load_once():
     t0 = time.perf_counter()
     
     # InstructBLIP requires explicitly setting legacy=False
-    processor = ProcessorCls.from_pretrained(
-        MODEL_ID,
-        use_fast=False,
-        **({"legacy": False} if ProcessorCls is InstructBlipProcessor else {})
-    )
-    model = ModelCls.from_pretrained(
-        MODEL_ID,
-        dtype=TORCH_DTYPE,
-        low_cpu_mem_usage=True,
-    ).to(device)
+    processor_kwargs = {"use_fast": False}
+    if ProcessorCls is InstructBlipProcessor:
+        processor_kwargs["legacy"] = False
+    processor = ProcessorCls.from_pretrained(MODEL_ID, **processor_kwargs)
+
+    if USE_BNB_QUANT:
+        # INT8/INT4 quantized loading via bitsandbytes (no extra model download)
+        if INFER_MODE == InferMode.INT4:
+            bnb_config = BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_quant_type="nf4",
+                bnb_4bit_use_double_quant=True,
+                bnb_4bit_compute_dtype=torch.float16,  # compute in fp16
+            )
+        else:  # InferMode.INT8
+            bnb_config = BitsAndBytesConfig(load_in_8bit=True)
+
+        model = ModelCls.from_pretrained(
+            MODEL_ID,
+            quantization_config=bnb_config,
+            low_cpu_mem_usage=True,
+        )
+    else:
+        # FP32/FP16/BF16 loading
+        model = ModelCls.from_pretrained(
+            MODEL_ID,
+            dtype=TORCH_DTYPE,
+            low_cpu_mem_usage=True,
+        ).to(device)
     model.eval()
 
     # Run a dummy forward pass to warm up the model and initialize GPU kernels
@@ -88,8 +111,12 @@ def _load_once():
             text="Answer:" if USE_PROMPT else None
         )
 
-        with torch.autocast(device_type="cuda", dtype=TORCH_DTYPE):
+        if USE_BNB_QUANT:
             _ = model.generate(**inputs, max_new_tokens=2)
+        else:
+            with torch.autocast(device_type="cuda", dtype=TORCH_DTYPE):
+                _ = model.generate(**inputs, max_new_tokens=2)
+
         # Ensure all CUDA operations complete before proceeding
         torch.cuda.synchronize()
     
@@ -153,8 +180,11 @@ async def inference(
 
     # 3) forward
     with torch.inference_mode():
-        with torch.autocast(device_type="cuda", dtype=TORCH_DTYPE):
+        if USE_BNB_QUANT:
             out = model.generate(**inputs, **GEN_KWARGS)
+        else:
+            with torch.autocast(device_type="cuda", dtype=TORCH_DTYPE):
+                out = model.generate(**inputs, **GEN_KWARGS)
     t2 = time.perf_counter()
 
     # 4) postprocess

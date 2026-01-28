@@ -20,7 +20,20 @@ MODEL_ID_MAP = {
 MODEL_ID = MODEL_ID_MAP[MODEL_FAMILY]
 
 # ---- inference precision ----
-DTYPE = "float16"
+DTYPE = "int4"  # one of: float32 | float16 | int8 | int4
+
+# ---- inference mode / dtype mapping ----
+class InferMode(str, Enum):
+    FP = "fp"       # float32 / float16
+    INT8 = "int8"   # bitsandbytes 8-bit
+    INT4 = "int4"   # bitsandbytes 4-bit (NF4)
+
+DTYPE_CONFIG = {
+    "float32": {"mode": InferMode.FP,   "torch_dtype": torch.float32},
+    "float16": {"mode": InferMode.FP,   "torch_dtype": torch.float16},
+    "int8":    {"mode": InferMode.INT8, "torch_dtype": None},
+    "int4":    {"mode": InferMode.INT4, "torch_dtype": None},
+}
 
 # ---- generation config ----
 DEFAULT_PROMPT = (

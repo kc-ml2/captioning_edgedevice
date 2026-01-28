@@ -24,6 +24,7 @@ def main():
     # ---- dataset paths ----
     img_dir = os.path.join(args.coco_root, "val2017")
     gt_json = os.path.join(args.coco_root, "annotations", "captions_val2017.json")
+    time_csv = os.path.join(args.save_dir, "timing_debug_int4.csv")
 
     os.makedirs(args.save_dir, exist_ok=True)
     pred_json = os.path.join(args.save_dir, "predictions_blip.json")
@@ -81,8 +82,7 @@ def main():
         pre_times=pre_times,
         forward_times=forward_times,
         post_times=post_times,
-        out_npz=os.path.join(args.save_dir, "timing_debug.npz"),
-        out_csv=os.path.join(args.save_dir, "timing_debug.csv"),
+        out_csv=time_csv,
     )
     
     # ---- notify server that all requests are completed ----
@@ -90,6 +90,7 @@ def main():
     dr = session.post(done_url, timeout=args.timeout)
     dr.raise_for_status()
     print("[DONE] predictions:", pred_json)
+    print("[DONE] time_savings:", time_csv)
 
 
 # ---- entrypoint ----
