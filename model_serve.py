@@ -187,6 +187,8 @@ async def inference(
                 out = model.generate(**inputs, **GEN_KWARGS)
     t2 = time.perf_counter()
 
+    torch.cuda.synchronize()
+
     # 4) postprocess
     caption = processor.batch_decode(out, skip_special_tokens=True)[0].strip()
     t3 = time.perf_counter()
