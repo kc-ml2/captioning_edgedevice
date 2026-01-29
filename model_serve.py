@@ -1,4 +1,4 @@
-# model_serve.py
+# BLIP_serve.py
 import os, io, time, logging
 from contextlib import asynccontextmanager
 
@@ -40,13 +40,11 @@ USE_BNB_QUANT = (INFER_MODE in (InferMode.INT8, InferMode.INT4))
 # ---- helpers ----
 # Prepare model inputs from the image and optional prompt
 def _prepare_inputs(img: Image.Image, text: str | None):
-    inputs = processor(
-        images=img,
-        return_tensors="pt",
-        **({"text": text} if (USE_PROMPT and text is not None) else {}),
-    )
-    return {k: v.to(device) for k, v in inputs.items() if torch.is_tensor(v)}
-
+    inputs = processor(images=img, text=text, return_tensors="pt")
+    inputs = {k: v.to(device) for k, v in inputs.items() if torch.is_tensor(v)}
+    if "pixel_values" in inputs:
+        inputs["pixel_values"] = inputs["pixel_values"].half()
+    return inputs
 
 # ---- model initialization ----
 # Load the model and processor once and keep them resident on the GPU
@@ -83,8 +81,8 @@ def _load_once():
         if INFER_MODE == InferMode.INT4:
             bnb_config = BitsAndBytesConfig(
                 load_in_4bit=True,
-                bnb_4bit_quant_type="nf4",
-                bnb_4bit_use_double_quant=True,
+                bnb_4bit_quant_type="fp4",
+                bnb_4bit_use_double_quant=False,
                 bnb_4bit_compute_dtype=torch.float16,  # compute in fp16
             )
         else:  # InferMode.INT8
@@ -94,6 +92,7 @@ def _load_once():
             MODEL_ID,
             quantization_config=bnb_config,
             low_cpu_mem_usage=True,
+            device_map="cuda"
         )
     else:
         # FP32/FP16/BF16 loading
@@ -185,9 +184,8 @@ async def inference(
         else:
             with torch.autocast(device_type="cuda", dtype=TORCH_DTYPE):
                 out = model.generate(**inputs, **GEN_KWARGS)
-    t2 = time.perf_counter()
-
-    torch.cuda.synchronize()
+        torch.cuda.synchronize()
+        t2 = time.perf_counter()
 
     # 4) postprocess
     caption = processor.batch_decode(out, skip_special_tokens=True)[0].strip()
@@ -213,7 +211,7 @@ def done():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(
-        "model_serve:app", 
+        "BLIP_serve:app", 
         host=HOST, 
         port=PORT, 
         workers=1, 
