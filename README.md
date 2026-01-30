@@ -12,10 +12,12 @@ loading and is suitable for batch inference workloads.
 Repository Structure
 ------------------------------------------------------------
 
-- model_serve.py: Model server (loads and serves the model)
+- BLIP_serve.py: BLIP model server (loads and serves the model)
+- HybridBLIP_serve.py: HybridBLIP (INT4 LLM) model server
 - client.py: Batch inference client
 - config.py: Centralized configuration
 - utils.py: Utility functions
+- output: 
 
 ------------------------------------------------------------
 HTTP API
@@ -34,16 +36,19 @@ POST /done
 - Optional notification that all inference requests are completed
 
 ------------------------------------------------------------
-Performance and Latency (FP16 / No Quantization)
+Performance and Latency 
 ------------------------------------------------------------
 
 Boot Latency
 
 The model server loads the model once at startup and performs an initial warm-up pass.
-The measured boot latency (model loading + warm-up) for each model is summarized below.
 
-- BLIP (Salesforce/blip-image-captioning-base): 5.6 s (5,646 ms)
-- InstructBLIP (Salesforce/instructblip-flan-t5-xl): 11.6 s (11,567 ms)
+| Model | Precision | Load Latency |
+|------|-----------|--------------|
+| BLIP | FP16 | 5 s |
+| InstructBLIP | FP16 | 12 s |
+| InstructBLIP | Hybrid (LLM INT4) | 15 s |
+| InstructBLIP | INT4 | 20 s |
 
 ------------------------------------------------------------
 
