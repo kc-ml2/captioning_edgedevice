@@ -39,9 +39,17 @@ POST /done
 Performance and Latency 
 ------------------------------------------------------------
 
-Boot Latency
+Load Latency
 
-The model server loads the model once at startup and performs an initial warm-up pass.
+:The model server loads the model once at startup and performs an initial warm-up pass.
+
+VRAM Usage
+
+:GPU (NVIDIA TITAN V) memory usage is measured after the model is fully loaded and warmed up.
+
+Inference Latency
+
+:Image Captioning Latency (100 Images)
 
 ### 📊 Model Comparison
 
@@ -53,23 +61,22 @@ The model server loads the model once at startup and performs an initial warm-up
 | InstructBLIP | INT4              | 20 s         | 5.0 GiB    | 2.7 s            |
 
 
-------------------------------------------------------------
+### ⚙️ Generation Configuration
 
-Captioning Outputs and Timing Records
+```python
+max_new_tokens = 80
+min_new_tokens = 40
+num_beams = 3
 
-Image Captioning Latency (100 Images)
+DEFAULT_PROMPT = (
+    "Question: Describe this image in two sentences. "
+    "Sentence 1 must describe the overall scene and the main objects visible across different regions of the image. "
+    "Sentence 2 must describe the spatial layout, mentioning the foreground, background, left, right, and center areas when applicable. "
+    "Do not mention 'Question' or 'Answer' in your response. "
+    "Answer:"
+)
+```
 
-
-------------------------------------------------------------
-
-GPU Memory Usage (Warm State)
-
-GPU memory usage is measured after the model is fully loaded and warmed up.
-
-GPU: NVIDIA TITAN V (12 GiB VRAM)
-
-- BLIP: 920 MiB
-- InstructBLIP: 10,682 MiB
 
 ------------------------------------------------------------
 Notes
