@@ -12,23 +12,23 @@ loading and is suitable for batch inference workloads.
 Repository Structure
 ------------------------------------------------------------
 
-- BLIP_serve.py: BLIP model server (loads and serves the model)
-- HybridBLIP_serve.py: HybridBLIP (INT4 LLM) model server
+- BLIP_serve.py: BLIP model server (loads and serves the BLIP series models)
+- HybridBLIP_serve.py: Hybrid InstructBLIP model server (INT4 LLM, FP16 vision/Q-Former)
 - client.py: Batch inference client
 - config.py: Centralized configuration
 - utils.py: Utility functions
-- output: 
+- output/: Generated captions
 
 ------------------------------------------------------------
 HTTP API
 ------------------------------------------------------------
 
 GET /health
-- Health and readiness check
+- Health and readiness check endpoint
 - Confirms that the model is loaded and the server is running
 
 POST /inference
-- Runs caption generation for a single image
+- Runs caption generation for a single image request
 - Request: multipart/form-data (file=image)
 - Response: JSON with a generated caption
 
@@ -39,23 +39,20 @@ POST /done
 Performance and Latency 
 ------------------------------------------------------------
 
-Load Latency
+**Load Latency**  
+The model server loads the model once at startup and performs an initial warm-up pass.
 
-:The model server loads the model once at startup and performs an initial warm-up pass.
+**VRAM Usage**  
+GPU (NVIDIA TITAN V) memory usage is measured after the model is fully loaded and warmed up.
 
-VRAM Usage
-
-:GPU (NVIDIA TITAN V) memory usage is measured after the model is fully loaded and warmed up.
-
-Inference Latency
-
-:Image Captioning Latency (100 Images)
+**Inference Latency**  
+Image captioning latency per image measured over 100 images.
 
 ### 📊 Model Comparison
 
 | Model        | Precision         | Load Latency | VRAM Usage | Inference Latency|
 |--------------|-------------------|--------------|------------|------------------|
-| BLIP         | FP16              | 5 s          | 0.9 GiB    | 0.6 s            |
+| BLIP base    | FP16              | 5 s          | 0.9 GiB    | 0.6 s            |
 | InstructBLIP | FP16              | 12 s         | 10.7 GiB   | 2.0 s            |
 | InstructBLIP | Hybrid (INT4 LLM) | 15 s         | 6.9 GiB    | 2.7 s            |
 | InstructBLIP | INT4              | 20 s         | 5.0 GiB    | 2.7 s            |
@@ -76,15 +73,15 @@ DEFAULT_PROMPT = (
     "Answer:"
 )
 ```
-
+The prompt is not used for BLIP base since it does not include an LLM.
 
 ------------------------------------------------------------
 Notes
 ------------------------------------------------------------
 
-- Model, prompt, and decoding settings are fixed on the server side
-- The client only sends image files
-- The server is intended to be reused across multiple runs
+- Model, prompt, and decoding settings are fixed on the server side.
+- The client only sends image files.
+- The server is intended to be reused across multiple runs.
 
 ------------------------------------------------------------
 License
