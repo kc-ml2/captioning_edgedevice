@@ -43,12 +43,15 @@ Boot Latency
 
 The model server loads the model once at startup and performs an initial warm-up pass.
 
-| Model | Precision | Load Latency |
-|------|-----------|--------------|
-| BLIP | FP16 | 5 s |
-| InstructBLIP | FP16 | 12 s |
-| InstructBLIP | Hybrid (LLM INT4) | 15 s |
-| InstructBLIP | INT4 | 20 s |
+### 📊 Model Comparison
+
+| Model        | Precision         | Load Latency | VRAM Usage | Inference Latency|
+|--------------|-------------------|--------------|------------|------------------|
+| BLIP         | FP16              | 5 s          | 0.9 GiB    | 0.6 s            |
+| InstructBLIP | FP16              | 12 s         | 10.7 GiB   | 2.0 s            |
+| InstructBLIP | Hybrid (INT4 LLM) | 15 s         | 6.9 GiB    | 2.7 s            |
+| InstructBLIP | INT4              | 20 s         | 5.0 GiB    | 2.7 s            |
+
 
 ------------------------------------------------------------
 
@@ -56,17 +59,6 @@ Captioning Outputs and Timing Records
 
 Image Captioning Latency (100 Images)
 
-All values are reported in milliseconds (ms) and represent per-image average latency.
-
-BLIP
-- Preprocess: 7.32 ms
-- Forward: 642.52 ms
-- Postprocess: 0.73 ms
-
-InstructBLIP
-- Preprocess: 5.90 ms
-- Forward: 1911.82 ms
-- Postprocess: 5.05 ms
 
 ------------------------------------------------------------
 
