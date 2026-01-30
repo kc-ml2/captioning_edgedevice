@@ -5,8 +5,7 @@ This repository provides a simple client–server architecture for image caption
 with a persistent (warm) model server.
 
 The server loads the model once and keeps it resident in GPU memory, while the client
-sends images via HTTP and receives generated captions. This design avoids repeated model
-loading and is suitable for batch inference workloads.
+sends images via HTTP and receives generated captions.
 
 ------------------------------------------------------------
 Repository Structure
