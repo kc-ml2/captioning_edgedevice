@@ -1,11 +1,7 @@
 Image Captioning Client–Server Inference System
 ==============================================
 
-This repository provides a simple client–server architecture for image captioning
-with a persistent (warm) model server.
-
-The server loads the model once and keeps it resident in GPU memory, while the client
-sends images via HTTP and receives generated captions.
+This repository provides a simple client–server architecture for image captioning with a warm GPU-resident model server.
 
 ------------------------------------------------------------
 Repository Structure
