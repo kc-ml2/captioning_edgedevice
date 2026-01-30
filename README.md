@@ -54,16 +54,7 @@ The model server loads the model once at startup and performs an initial warm-up
 
 Captioning Outputs and Timing Records
 
-- Captioning results can be found in the JSON files under the output directory.
-- Per-image timing results (preprocess / forward / postprocess) are stored separately
-  in the timing files under the same directory.
-
-------------------------------------------------------------
-
-Image Captioning Latency (500 Images)
-
-The following results are measured on 500 images
-(approximately 10% of the COCO 2017 validation dataset).
+Image Captioning Latency (100 Images)
 
 All values are reported in milliseconds (ms) and represent per-image average latency.
 
