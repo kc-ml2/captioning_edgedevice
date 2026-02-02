@@ -9,6 +9,7 @@ Repository Structure
 
 - BLIP_serve.py: BLIP model server (loads and serves the BLIP series models)
 - HybridBLIP_serve.py: Hybrid InstructBLIP model server (INT4 LLM, FP16 vision/Q-Former)
+- INT4BLIP_serve.py: Only INT4 weighted InstructBLIP model server
 - client.py: Batch inference client
 - config.py: Centralized configuration
 - utils.py: Utility functions
