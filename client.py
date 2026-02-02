@@ -66,24 +66,27 @@ def main():
             r.raise_for_status()
             resp = r.json()
             caption = resp["caption"]
-            tms = resp["timings_ms"]
-            pre_times.append(tms["preprocess_ms"])
-            forward_times.append(tms["forward_ms"])
-            post_times.append(tms["post_ms"])
+            tms = resp["latency"]
 
-        preds.append({"image_id": int(img_id), "caption": caption})
+        preds.append({
+            "image_id": int(img_id),
+            "caption": caption}
+        )
+
+        timing_records.append({
+            "image_id": int(img_id),
+            "latency": float(tms)
+        })
 
     # ---- save predictions ----
     with open(pred_json, "w", encoding="utf-8") as f:
         json.dump(preds, f, ensure_ascii=False, indent=2)
         f.write("\n")
     
-    save_timing_debug(
-        pre_times=pre_times,
-        forward_times=forward_times,
-        post_times=post_times,
-        out_csv=time_csv,
-    )
+    with open(time_csv, "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["image_id", "latency"])
+        w.writerows((r["image_id"], r["latency"]) for r in timing_records)
     
     # ---- notify server that all requests are completed ----
     done_url = args.server_url.replace("/inference", "/done")
