@@ -30,6 +30,7 @@ POST /inference
 
 POST /done
 - Optional notification that all inference requests are completed
+- Print VRAM memory usage
 
 ------------------------------------------------------------
 Performance and Latency 
