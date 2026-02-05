@@ -13,7 +13,7 @@ Repository Structure
 - client.py: Batch inference client
 - config.py: Centralized configuration
 - utils.py: Utility functions
-- output/: Generated captions
+- output/: Generated captions and time_debug
   - time_csv.py: time debug and calculate the mean speed
 ------------------------------------------------------------
 HTTP API
