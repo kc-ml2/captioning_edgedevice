@@ -58,7 +58,8 @@ def _load_once():
 
     processor = InstructBlipProcessor.from_pretrained(
         MODEL_ID,
-        use_fast=False,
+        # True: use a Rust-based tokenizer; False: use a Python-based tokenizer
+        use_fast=True,
         legacy=False,
     )
 
