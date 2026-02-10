@@ -6,7 +6,7 @@ This repository provides a simple client–server architecture for image caption
 ------------------------------------------------------------
 Repository Structure
 ------------------------------------------------------------
--MobileVLM-v2-1.7b/: git "Meituan-AutoML/MobileVLM"
+- MobileVLM-v2-1.7b/: git "Meituan-AutoML/MobileVLM"
   - mobileVLM_serve.py: MobileVLM-v2-1.7b model server
   - client.py: Inference client (request images and configuration)
 
