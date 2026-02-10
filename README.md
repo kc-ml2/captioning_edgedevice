@@ -58,6 +58,7 @@ Image captioning latency per image measured over 100 images.
 | InstructBLIP | FP16              | 12 s         | 10.7 GiB   | 2.0 s            |
 | InstructBLIP | Hybrid (INT4 LLM) | 15 s         | 6.9 GiB    | 2.7 s            |
 | InstructBLIP | INT4              | 20 s         | 5.0 GiB    | 2.7 s            |
+| MobileVLM-v2 | INT4              | 11 s         | 2.1 GiB    | 2.6 s            |
 
 
 ### ⚙️ Generation Configuration
