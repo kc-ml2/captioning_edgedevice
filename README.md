@@ -48,7 +48,7 @@ The model server loads the model once at startup and performs an initial warm-up
 GPU (NVIDIA TITAN V) memory usage is measured after the model is fully loaded and warmed up.
 
 **Inference Latency**  
-Image captioning latency per image measured over 100 images.
+Image captioning latency per image measured over 500 images.
 
 ### 📊 Model Comparison
 
