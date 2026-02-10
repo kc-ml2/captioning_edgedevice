@@ -10,7 +10,7 @@ Repository Structure
   - mobileVLM_serve.py: MobileVLM-v2-1.7b model server
   - client.py: Inference client (request images and configuration)
 
---
+-----
 
 - BLIP_serve.py: BLIP model server (loads and serves the BLIP series models)
 - HybridBLIP_serve.py: Hybrid InstructBLIP model server (INT4 LLM, FP16 vision/Q-Former)
