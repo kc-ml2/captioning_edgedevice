@@ -1,0 +1,125 @@
+import torch
+from PIL import Image
+from model.constants import IMAGE_TOKEN_INDEX
+
+
+def expand2square(pil_img, background_color):
+    width, height = pil_img.size
+    if width == height:
+        return pil_img
+    elif width > height:
+        result = Image.new(pil_img.mode, (width, width), background_color)
+        result.paste(pil_img, (0, (width - height) // 2))
+        return result
+    else:
+        result = Image.new(pil_img.mode, (height, height), background_color)
+        result.paste(pil_img, ((height - width) // 2, 0))
+        return result
+
+
+def process_images(images, image_processor, model_cfg):
+    image_aspect_ratio = getattr(model_cfg, "image_aspect_ratio", None)
+    new_images = []
+    if image_aspect_ratio == 'pad':
+        for image in images:
+            image = expand2square(image, tuple(int(x*255) for x in image_processor.image_mean))
+            image = image_processor.preprocess(image, return_tensors='pt')['pixel_values'][0]
+            new_images.append(image)
+    else:
+        return image_processor(images, return_tensors='pt')['pixel_values']
+    if all(x.shape == new_images[0].shape for x in new_images):
+        new_images = torch.stack(new_images, dim=0)
+    return new_images
+
+def tokenizer_image_token(prompt, tokenizer, return_tensors=None):
+    prompt_chunks = [tokenizer(chunk).input_ids for chunk in prompt.split('<image>')]
+
+    def insert_separator(X, sep):
+        return [ele for sublist in zip(X, [sep]*len(X)) for ele in sublist][:-1]
+
+    input_ids = []
+    offset = 0
+    if len(prompt_chunks) > 0 and len(prompt_chunks[0]) > 0 and prompt_chunks[0][0] == tokenizer.bos_token_id:
+        offset = 1
+        input_ids.append(prompt_chunks[0][0])
+
+    for x in insert_separator(prompt_chunks, [IMAGE_TOKEN_INDEX] * (offset + 1)):
+        input_ids.extend(x[offset:])
+
+    if return_tensors is not None:
+        if return_tensors == 'pt':
+            return torch.tensor(input_ids, dtype=torch.long)
+        raise ValueError(f'Unsupported tensor type: {return_tensors}')
+    return input_ids
+
+
+import gc
+def to_int8_dynamic(model: torch.nn.Module) -> torch.nn.Module:
+    torch.backends.quantized.engine = "qnnpack"
+
+    model_int8 = torch.ao.quantization.quantize_dynamic(
+        model,
+        {torch.nn.Linear},
+        dtype=torch.qint8
+    )
+    model_int8.eval()
+
+    del model
+    gc.collect()
+
+    return model_int8
+
+
+import os, tempfile, torch, psutil
+
+def _fmt_mib(x_bytes: int) -> str:
+    return f"{x_bytes / (1024**2):.2f} MiB"
+
+# ---------------------------
+# 1️⃣ 모델 가중치 (정적 footprint)
+# ---------------------------
+def get_state_dict_file_bytes(model) -> int:
+    """
+    Save state_dict temporarily and measure file size.
+    -> Pure model weights + persistent buffers only.
+    """
+    if model is None:
+        return 0
+
+    with tempfile.NamedTemporaryFile(suffix=".pt", delete=False) as f:
+        path = f.name
+
+    try:
+        torch.save(model.state_dict(), path)
+        return os.path.getsize(path)
+    finally:
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+
+
+# ---------------------------
+# 2️⃣ 해당 PID 전체 메모리 (RSS)
+# ---------------------------
+def get_process_rss_bytes(pid=None) -> int:
+    pid = pid or os.getpid()
+    return psutil.Process(pid).memory_info().rss
+
+
+# ---------------------------
+# 3️⃣ 통합 출력
+# ---------------------------
+def print_full_memory_report(tag: str, model=None, pid=None):
+    pid = pid or os.getpid()
+
+    rss_bytes = get_process_rss_bytes(pid)
+    weight_bytes = get_state_dict_file_bytes(model)
+
+    print(f"\n[MEMORY REPORT] {tag} (pid={pid})")
+    print(f"  Process RSS (전체 메모리) : {_fmt_mib(rss_bytes)}")
+    print(f"  Model state_dict size     : {_fmt_mib(weight_bytes)}")
+
+    if rss_bytes > 0:
+        ratio = weight_bytes / rss_bytes
+        print(f"  Weight / RSS ratio        : {ratio:.2%}")
