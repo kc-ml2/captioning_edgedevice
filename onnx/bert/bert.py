@@ -31,6 +31,7 @@ enable_overwrite = False
 
 # Total samples to inference. It shall be large enough to get stable latency measurement.
 total_samples = 100
+
 #### ------------------------------- ####
 
 def main():
