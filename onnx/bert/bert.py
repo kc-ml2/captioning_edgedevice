@@ -31,7 +31,6 @@ enable_overwrite = False
 
 # Total samples to inference. It shall be large enough to get stable latency measurement.
 total_samples = 100
-
 #### ------------------------------- ####
 
 def main():
@@ -67,15 +66,10 @@ def main():
                 return_dataset='pt'
             )
 
-    output_dir = os.path.join(".", "onnx_models")
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)   
-    export_model_path = os.path.join(output_dir, 'bert-base-cased-squad.onnx')
-
     import torch
     device = torch.device("cpu")
 
-    # Get the first example data to run the model and export it to ONNX
+    # Get the first example data (dummy input) to run the model and export it to ONNX
     data = dataset[0]
     inputs = {
         'input_ids':      data[0].to(device).reshape(1, max_seq_length),
@@ -88,6 +82,29 @@ def main():
     model.eval()
     model.to(device)
 
+    output_dir = os.path.join(".", "onnx_models")
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)   
+    export_model_path = os.path.join(output_dir, 'bert-base-cased-squad.onnx')
+
+    import time
+
+    # Measure the latency. It is not accurate using Jupyter Notebook, it is recommended to use standalone python script.
+    latency = []
+    with torch.no_grad():
+        for i in range(total_samples):
+            data = dataset[i]
+            inputs = {
+                'input_ids':      data[0].to(device).reshape(1, max_seq_length),
+                'attention_mask': data[1].to(device).reshape(1, max_seq_length),
+                'token_type_ids': data[2].to(device).reshape(1, max_seq_length)
+            }
+            start = time.time()
+            outputs = model(**inputs)
+            latency.append(time.time() - start)
+    print("PyTorch {} Inference time = {} ms".format(device.type, format(sum(latency) * 1000 / len(latency), '.2f')))
+
+    # ONNX export only requires correct input/output tensor shapes
     if enable_overwrite or not os.path.exists(export_model_path):
         with torch.no_grad():
             symbolic_names = {0: 'batch_size', 1: 'max_seq_len'}
@@ -107,22 +124,6 @@ def main():
                                           'end' : symbolic_names})
             print("Model exported at ", export_model_path)
     
-    import time
-
-    # Measure the latency. It is not accurate using Jupyter Notebook, it is recommended to use standalone python script.
-    latency = []
-    with torch.no_grad():
-        for i in range(total_samples):
-            data = dataset[i]
-            inputs = {
-                'input_ids':      data[0].to(device).reshape(1, max_seq_length),
-                'attention_mask': data[1].to(device).reshape(1, max_seq_length),
-                'token_type_ids': data[2].to(device).reshape(1, max_seq_length)
-            }
-            start = time.time()
-            outputs = model(**inputs)
-            latency.append(time.time() - start)
-    print("PyTorch {} Inference time = {} ms".format(device.type, format(sum(latency) * 1000 / len(latency), '.2f')))
 
     import onnxruntime
     import numpy
@@ -131,7 +132,7 @@ def main():
 
     # Optional: store the optimized graph and view it using Netron to verify that model is fully optimized.
     # Note that this will increase session creation time, so it is for debugging only.
-    sess_options.optimized_model_filepath = os.path.join(output_dir, "optimized_model_cpu.onnx")
+    # sess_options.optimized_model_filepath = os.path.join(output_dir, "optimized_model_cpu.onnx")
 
     # Specify providers when you use onnxruntime-gpu for CPU inference.
     session = onnxruntime.InferenceSession(export_model_path, sess_options, providers=['CPUExecutionProvider'])
