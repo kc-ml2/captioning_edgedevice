@@ -75,9 +75,7 @@ import os, tempfile, torch, psutil
 def _fmt_mib(x_bytes: int) -> str:
     return f"{x_bytes / (1024**2):.2f} MiB"
 
-# ---------------------------
-# 1️⃣ 모델 가중치 (정적 footprint)
-# ---------------------------
+
 def get_state_dict_file_bytes(model) -> int:
     """
     Save state_dict temporarily and measure file size.
@@ -99,21 +97,10 @@ def get_state_dict_file_bytes(model) -> int:
             pass
 
 
-# ---------------------------
-# 2️⃣ 해당 PID 전체 메모리 (RSS)
-# ---------------------------
-def get_process_rss_bytes(pid=None) -> int:
-    pid = pid or os.getpid()
-    return psutil.Process(pid).memory_info().rss
-
-
-# ---------------------------
-# 3️⃣ 통합 출력
-# ---------------------------
 def print_full_memory_report(tag: str, model=None, pid=None):
     pid = pid or os.getpid()
 
-    rss_bytes = get_process_rss_bytes(pid)
+    rss_bytes = psutil.Process(pid).memory_info().rss
     weight_bytes = get_state_dict_file_bytes(model)
 
     print(f"\n[MEMORY REPORT] {tag} (pid={pid})")

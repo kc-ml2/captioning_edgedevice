@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 from abc import ABC, abstractmethod
-from transformers import AutoTokenizer
 try:
     from transformers import BitsAndBytesConfig
 except Exception:
@@ -78,6 +77,7 @@ class MobileVLMMetaModel:
             self.mm_projector.load_state_dict(get_w(mm_projector_weights, 'mm_projector'))
 
 
+# Connects the vision encoder and LLM for multimodal processing
 class MobileVLMMetaForCausalLM(ABC):
 
     @abstractmethod
@@ -92,23 +92,34 @@ class MobileVLMMetaForCausalLM(ABC):
         image_features = self.get_model().mm_projector(image_features)
         return image_features
 
+    # Prepare LLM inputs by inserting image features at <image> token positions
     def prepare_inputs_labels_for_multimodal(
-        self, input_ids, attention_mask, past_key_values, labels, images
+        self, input_ids, attention_mask, past_key_values, labels, images=None, image_features=None
     ):
+        # Skip multimodal input construction if no image is provided or during autoregressive decoding (single-token step)
         vision_tower = self.get_vision_tower()
-        if vision_tower is None or images is None or input_ids.shape[1] == 1:
-            if past_key_values is not None and vision_tower is not None and images is not None and input_ids.shape[1] == 1:
+        if (vision_tower is None) or (images is None and image_features is None) or (input_ids.shape[1] == 1):
+            if past_key_values is not None and vision_tower is not None and (images is not None or image_features is not None) and input_ids.shape[1] == 1:
                 attention_mask = torch.ones((attention_mask.shape[0], past_key_values[-1][-1].shape[-2] + 1), dtype=attention_mask.dtype, device=attention_mask.device)
             return input_ids, attention_mask, past_key_values, None, labels
 
-        if type(images) is list or images.ndim == 5:
-            concat_images = torch.cat([image for image in images], dim=0)
-            image_features = self.encode_images(concat_images)
-            split_sizes = [image.shape[0] for image in images]
-            image_features = torch.split(image_features, split_sizes, dim=0)
-            image_features = [x.flatten(0, 1) for x in image_features]
-        else:
-            image_features = self.encode_images(images)
+        # Use ONNX image_features if provided; otherwise compute with PyTorch.
+        if image_features is None:
+            if type(images) is list or images.ndim == 5:
+                concat_images = torch.cat([image for image in images], dim=0)
+                image_features = self.encode_images(concat_images)
+                split_sizes = [image.shape[0] for image in images]
+                image_features = torch.split(image_features, split_sizes, dim=0)
+                image_features = [x.flatten(0, 1) for x in image_features]
+            else:
+                image_features = self.encode_images(images)
+
+            else:
+                if isinstance(image_features, list):
+                    image_features = [x.to(device=input_ids.device, dtype=self.get_model().embed_tokens.weight.dtype) for x in image_features]
+                else:
+                    image_features = image_features.to(device=input_ids.device, dtype=self.get_model().embed_tokens.weight.dtype)
+
 
         new_input_embeds = []
         new_labels = [] if labels is not None else None
@@ -266,9 +277,6 @@ def load_pretrained_model(model_path, load_8bit=False, load_4bit=False, device_m
         category=FutureWarning,
     )
 
-    from model.mobilellama import MobileLlamaForCausalLM
-
-    # kwargs = {"device_map": device_map}
     is_cpu = (str(device) == "cpu")
     if is_cpu:
         device_map = None
@@ -290,8 +298,11 @@ def load_pretrained_model(model_path, load_8bit=False, load_4bit=False, device_m
         )
     else:
         kwargs['torch_dtype'] = torch.float32 if is_cpu else torch.float16
+    
+    from transformers import LlamaTokenizer
+    from model.mobilellama import MobileLlamaForCausalLM
 
-    tokenizer = AutoTokenizer.from_pretrained(model_path, use_fast=False)
+    tokenizer = LlamaTokenizer.from_pretrained(model_path, use_fast=False)
     model = MobileLlamaForCausalLM.from_pretrained(model_path, low_cpu_mem_usage=True, **kwargs)
 
     if is_cpu:
@@ -321,3 +332,11 @@ def load_pretrained_model(model_path, load_8bit=False, load_4bit=False, device_m
         context_len = 2048
     
     return tokenizer, model, image_processor, context_len
+
+
+from model.vicuan_templete import conv_vicuna_v1
+def build_prompt(question: str) -> str:
+    conv = conv_vicuna_v1.copy()
+    conv.append_message(conv.roles[0], "<image>" + "\n" + question)
+    conv.append_message(conv.roles[1], None)
+    return conv.get_prompt()
