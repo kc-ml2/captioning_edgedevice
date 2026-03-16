@@ -1,4 +1,4 @@
-# onnx_moblievlm.py
+# comparison.py
 
 import os, types
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
