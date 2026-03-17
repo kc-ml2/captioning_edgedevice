@@ -1,3 +1,5 @@
+# mutils.py
+
 import torch
 from PIL import Image
 from model.constants import IMAGE_TOKEN_INDEX
@@ -34,6 +36,14 @@ def process_images(images, image_processor, model_cfg):
 def tokenizer_image_token(prompt, tokenizer, return_tensors=None):
     prompt_chunks = [tokenizer(chunk).input_ids for chunk in prompt.split('<image>')]
 
+    # prompt_chunks = [[chunk1], [chunk2]]
+    '''
+    [
+      [1, 319, 13563, ..., 29901, 29871],  # 1 is tokenizer.bos_token_id
+      [1, 29871, 13, ..., 13566, 29901]
+    ]
+    '''
+
     def insert_separator(X, sep):
         return [ele for sublist in zip(X, [sep]*len(X)) for ele in sublist][:-1]
 
@@ -41,10 +51,10 @@ def tokenizer_image_token(prompt, tokenizer, return_tensors=None):
     offset = 0
     if len(prompt_chunks) > 0 and len(prompt_chunks[0]) > 0 and prompt_chunks[0][0] == tokenizer.bos_token_id:
         offset = 1
-        input_ids.append(prompt_chunks[0][0])
+        input_ids.append(prompt_chunks[0][0])  # input_ids = [1]
 
     for x in insert_separator(prompt_chunks, [IMAGE_TOKEN_INDEX] * (offset + 1)):
-        input_ids.extend(x[offset:])
+        input_ids.extend(x[offset:])   # input_ids = [1, 319, 13563, ..., -200, 29871, ..., 29901]
 
     if return_tensors is not None:
         if return_tensors == 'pt':

@@ -1,3 +1,5 @@
+# mobilevlm.py
+
 import torch
 import torch.nn as nn
 from abc import ABC, abstractmethod
@@ -92,18 +94,41 @@ class MobileVLMMetaForCausalLM(ABC):
         image_features = self.get_model().mm_projector(image_features)
         return image_features
 
-    # Prepare LLM inputs by inserting image features at <image> token positions
+    #  Prepare multi-modal inputs by inserting image features at <image> token positions
     def prepare_inputs_labels_for_multimodal(
-        self, input_ids, attention_mask, past_key_values, labels, images=None, image_features=None
+        self, 
+        input_ids,           # text prompt token_id from tokenizer
+        attention_mask, 
+        past_key_values, 
+        labels, 
+        images=None,         # image feature from PyTorch
+        image_features=None  # image feature from ONNX
     ):
-        # Skip multimodal input construction if no image is provided or during autoregressive decoding (single-token step)
         vision_tower = self.get_vision_tower()
-        if (vision_tower is None) or (images is None and image_features is None) or (input_ids.shape[1] == 1):
-            if past_key_values is not None and vision_tower is not None and (images is not None or image_features is not None) and input_ids.shape[1] == 1:
-                attention_mask = torch.ones((attention_mask.shape[0], past_key_values[-1][-1].shape[-2] + 1), dtype=attention_mask.dtype, device=attention_mask.device)
+        # prefill: seq_len > 1, decoding: seq_len == 1
+        is_decoding_step = input_ids.shape[1] == 1
+
+        if (
+            (vision_tower is None) or                         # Text-only model
+            (images is None and image_features is None) or    # Text-only input
+            (is_decoding_step)                                # Multi-modal model + decoding step
+        ):
+            # Adjust attention_mask to match KV cache length during decoding
+            if (
+                (past_key_values is not None) and 
+                (vision_tower is not None) and 
+                (images is not None or image_features is not None) and 
+                (is_decoding_step)
+            ):
+                # Match attention_mask to KV cache length (+ current token)
+                attention_mask = torch.ones(
+                    (attention_mask.shape[0], past_key_values[-1][-1].shape[-2] + 1), 
+                    dtype=attention_mask.dtype, 
+                    device=attention_mask.device
+                )
             return input_ids, attention_mask, past_key_values, None, labels
 
-        # Use ONNX image_features if provided; otherwise compute with PyTorch.
+        # Use ONNX image_features if provided; otherwise compute with PyTorch
         if image_features is None:
             if type(images) is list or images.ndim == 5:
                 concat_images = torch.cat([image for image in images], dim=0)
@@ -114,12 +139,17 @@ class MobileVLMMetaForCausalLM(ABC):
             else:
                 image_features = self.encode_images(images)
 
+        else:
+            if isinstance(image_features, list):
+                image_features = [
+                    x.to(device=input_ids.device, dtype=self.get_model().embed_tokens.weight.dtype) 
+                    for x in image_features
+                ]
             else:
-                if isinstance(image_features, list):
-                    image_features = [x.to(device=input_ids.device, dtype=self.get_model().embed_tokens.weight.dtype) for x in image_features]
-                else:
-                    image_features = image_features.to(device=input_ids.device, dtype=self.get_model().embed_tokens.weight.dtype)
-
+                image_features = image_features.to(
+                    device=input_ids.device, 
+                    dtype=self.get_model().embed_tokens.weight.dtype
+                )
 
         new_input_embeds = []
         new_labels = [] if labels is not None else None

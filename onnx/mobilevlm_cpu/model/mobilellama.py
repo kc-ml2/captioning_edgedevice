@@ -1,3 +1,5 @@
+# mobilellama.py
+
 from typing import List, Optional, Tuple, Union
 
 import torch
@@ -114,6 +116,7 @@ class MobileLlamaForCausalLM(LlamaForCausalLM, MobileVLMMetaForCausalLM):
                 "use_cache": kwargs.get("use_cache"),
                 "attention_mask": attention_mask,
                 "images": kwargs.get("images", None),
+                "image_features": kwargs.get("image_features", None),
             }
         )
         return model_inputs
