@@ -1,4 +1,4 @@
-# onnx_moblievlm.py
+# onnx_mobilevlm.py
 
 import os, types
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
@@ -8,84 +8,92 @@ from typing import Dict
 import numpy as np
 import onnxruntime as ort
 
-from model.mobilevlm import load_pretrained_model, build_prompt
-from model.mutils import process_images, tokenizer_image_token, print_full_memory_report, to_int8_dynamic
+from model.mobilevlm import load_pretrained_model
+from model.mutils import process_images, build_prompt, tokenizer_image_token
+from transformers import LlamaTokenizer
+from onnx_preprocessor import preprocess_batch
+from onnx_multimodal_input import prepare_inputs_labels_for_multimodal_onnx
 
 
-# ---- Default values ---- #
-GEN_KWARGS_DEFAULT = dict(
-    num_beams=1,
-    max_new_tokens=40,
-    min_new_tokens=40,
-)
-
-device = torch.device("cpu")
-
-# HF model id or local path
-MODEL_PATH = "mtgv/MobileVLM_V2-1.7B"
-
-tokenizer, model, image_processor, context_len = load_pretrained_model(
-    model_path=MODEL_PATH,
-    device="cpu",
-)
-model.eval()
-
-
-# ---- inference ----
+# ---- Inference ----
+# ---- Preprocess ----
 img_path = "000000000139.jpg"
-image = Image.open(img_path).convert("RGB")  # (426, 640, 3)
+image = Image.open(img_path).convert("RGB")
 
-# preprocess image
-image_tensor = process_images([image], image_processor, model.config)  # (1, 3, 336, 336)
-image_tensor = image_tensor.to(device=device, dtype=torch.float32)
+onnx_preprocessor_out = preprocess_batch([image])  # (1, 3, 336, 336)
+# np.save("comparison/onnx_preprocessor_out.npy", onnx_preprocessor_out)
 
-question = "What objects are visible in the image in detail."
-prompt = build_prompt(question)
-'''
-A chat between a curious user and an artificial intelligence assistant. 
-The assistant gives helpful, detailed, and polite answers to the user's questions. 
-USER: <image> What objects are visible in the image in detail. 
-ASSISTANT:
-'''
+# ---- Vision encoder ----
+vision_sess = ort.InferenceSession(
+    "export_onnx/vision_tower.onnx", 
+    providers=["CPUExecutionProvider"]
+)
 
-# [1, 319, 13563, ... , -200, ... , 29901] / IMAGE_TOKEN_INDEX (placeholder) = -200
-input_ids = tokenizer_image_token(
-    prompt,
-    tokenizer,  # LlamaTokenizer
-    return_tensors="pt",
-).unsqueeze(0).to(device)
-
-attention_mask = torch.ones_like(input_ids)
-
-# ONNX
-vision_sess = ort.InferenceSession("vision_tower.onnx", providers=["CPUExecutionProvider"])
-projector_sess = ort.InferenceSession("mm_projector.onnx", providers=["CPUExecutionProvider"])
-
-pixel_values_np = image_tensor.cpu().numpy().astype(np.float32)
 vision_out = vision_sess.run(
     ["image_features"],
-    {"pixel_values": pixel_values_np},
+    {"pixel_values": onnx_preprocessor_out},
 )[0]
+# np.save("comparison/onnx_vision_out.npy", vision_out)
+
+# ---- Projector ----
+projector_sess = ort.InferenceSession(
+    "export_onnx/mm_projector.onnx", 
+    providers=["CPUExecutionProvider"]
+)
 
 projector_out = projector_sess.run(
     ["projected_features"],
-    {"image_features": vision_out.astype(np.float32)},
+    {"image_features": vision_out},
 )[0]
+# np.save("comparison/onnx_projector_out.npy", projector_out)
 
-image_features = torch.from_numpy(projector_out).to(device=device, dtype=model.get_model().embed_tokens.weight.dtype)
+# ---- Multi-modal input ----
+tokenizer = LlamaTokenizer.from_pretrained("mtgv/MobileVLM_V2-1.7B", use_fast=False)
+question = "What objects are visible in the image in detail."
+prompt = build_prompt(question)
 
+input_ids = tokenizer_image_token(
+    prompt,
+    tokenizer,
+    return_tensors="np",    # No use PyTorch
+)  # [53]
 
-with torch.inference_mode():
-    out_ids = model.generate(
-        input_ids,
-        # images=image_tensor,          # Use original PyTorch model
-        image_features=image_features,  # Use ONNX format (vision) and Pytorch model (LLM)
-        **GEN_KWARGS_DEFAULT,
-    )
+input_ids = np.expand_dims(input_ids, axis=0)  # [1, 53]
 
-# Decode caption
-gen_ids = out_ids[0][input_ids.shape[1] :]
-text = tokenizer.batch_decode(gen_ids.unsqueeze(0), skip_special_tokens=True)[0]
-caption = re.sub(r"\s+", " ", text).strip()
+attention_mask = np.ones_like(input_ids)
 
-print(f"caption: {caption}")
+with torch.no_grad():
+
+    _, onnx_attention_mask_, _, onnx_multimodal_inputs_embeds, _ = \
+        prepare_inputs_labels_for_multimodal_onnx(
+            input_ids,
+            attention_mask,
+            past_key_values=None,
+            labels=None,
+            images=None,
+            image_features=projector_out
+        )
+
+print(onnx_multimodal_inputs_embeds.shape)
+
+exit()
+
+# ---- LLM prefill ----
+sess = ort.InferenceSession(
+    "export_onnx/prefill_merged.onnx",
+    providers=["CPUExecutionProvider"]
+)
+
+onnx_outputs = sess.run(
+    None,
+    {
+        "inputs_embeds": onnx_inputs_embeds.detach().cpu().numpy(),
+        "attention_mask": onnx_attention_mask_.cpu().numpy(),
+    }
+)
+
+onnx_logits = onnx_outputs[0]
+onnx_next_logit = onnx_logits[:, -1, :]
+
+# ONNX KV
+onnx_kv = onnx_outputs[1:]
