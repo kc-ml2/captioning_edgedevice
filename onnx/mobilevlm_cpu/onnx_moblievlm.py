@@ -23,6 +23,7 @@ image = Image.open(img_path).convert("RGB")
 onnx_preprocessor_out = preprocess_batch([image])  # (1, 3, 336, 336)
 # np.save("comparison/onnx_preprocessor_out.npy", onnx_preprocessor_out)
 
+
 # ---- Vision encoder ----
 vision_sess = ort.InferenceSession(
     "export_onnx/vision_tower.onnx", 
@@ -35,6 +36,7 @@ vision_out = vision_sess.run(
 )[0]
 # np.save("comparison/onnx_vision_out.npy", vision_out)
 
+
 # ---- Projector ----
 projector_sess = ort.InferenceSession(
     "export_onnx/mm_projector.onnx", 
@@ -46,6 +48,7 @@ projector_out = projector_sess.run(
     {"image_features": vision_out},
 )[0]
 # np.save("comparison/onnx_projector_out.npy", projector_out)
+
 
 # ---- Multi-modal input ----
 tokenizer = LlamaTokenizer.from_pretrained("mtgv/MobileVLM_V2-1.7B", use_fast=False)
@@ -77,6 +80,7 @@ with torch.no_grad():
 print(onnx_multimodal_inputs_embeds.shape)
 
 exit()
+
 
 # ---- LLM prefill ----
 sess = ort.InferenceSession(
