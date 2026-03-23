@@ -59,7 +59,8 @@ def tokenizer_image_token(prompt, tokenizer, return_tensors=None):
     if return_tensors is not None:
         if return_tensors == 'pt':
             return torch.tensor(input_ids, dtype=torch.long)
-        raise ValueError(f'Unsupported tensor type: {return_tensors}')
+        elif return_tensors == 'np':
+            return np.array(input_ids, dtype=np.int64)
     return input_ids
 
 
