@@ -29,6 +29,8 @@ class PrefillWrapper(torch.nn.Module):
         hidden_states = outputs[0]
         past_key_values = outputs[1]
         logits = self.lm_head(hidden_states)
+        logits = logits[..., :32000]
+        
         flat_pkv = []
         for k, v in past_key_values:
             flat_pkv.extend([k, v])

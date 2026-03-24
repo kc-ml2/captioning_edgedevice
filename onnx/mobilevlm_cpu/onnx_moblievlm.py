@@ -9,17 +9,17 @@ import numpy as np
 import onnxruntime as ort
 
 from model.mobilevlm import load_pretrained_model
-from model.mutils import process_images, build_prompt, tokenizer_image_token
-from transformers import LlamaTokenizer
+from model.mutils import process_images, build_prompt, tokenizer_image_token_onnx
 from onnx_preprocessor import preprocess_batch
 from onnx_multimodal_input import prepare_inputs_labels_for_multimodal_onnx
 
 
 # ---- Inference ----
-# ---- Preprocess ----
 img_path = "000000000139.jpg"
 image = Image.open(img_path).convert("RGB")
 
+
+# ---- Image preprocessor ----
 onnx_preprocessor_out = preprocess_batch([image])  # (1, 3, 336, 336)
 # np.save("comparison/onnx_preprocessor_out.npy", onnx_preprocessor_out)
 
@@ -51,53 +51,60 @@ projector_out = projector_sess.run(
 
 
 # ---- Multi-modal input ----
-tokenizer = LlamaTokenizer.from_pretrained("mtgv/MobileVLM_V2-1.7B", use_fast=False)
+import sentencepiece as spm
+sp = spm.SentencePieceProcessor()
+sp.load("export_onnx/tokenizer.model")
+
 question = "What objects are visible in the image in detail."
 prompt = build_prompt(question)
 
-input_ids = tokenizer_image_token(
-    prompt,
-    tokenizer,
-    return_tensors="np",    # No use PyTorch
+input_ids = tokenizer_image_token_onnx(
+    prompt=prompt,
+    tokenizer=sp,
 )  # [53]
 
 input_ids = np.expand_dims(input_ids, axis=0)  # [1, 53]
 
+# ---- tokenizer and embedding layer ----
+input_ids_clean = input_ids[input_ids >= 0]
+embedding_weight = np.load("export_onnx/embed_tokens.npy")  # (32000, 2048)
+np_prompt_embedding = embedding_weight[input_ids_clean]
+# np.save("comparison/onnx_prompt_embedding.npy", np_prompt_embedding)
+
 attention_mask = np.ones_like(input_ids)
 
+# ---- Multimodal input ----
 with torch.no_grad():
-
-    _, onnx_attention_mask_, _, onnx_multimodal_inputs_embeds, _ = \
+    onnx_attention_mask, onnx_multimodal_input_embeds = \
         prepare_inputs_labels_for_multimodal_onnx(
             input_ids,
             attention_mask,
-            past_key_values=None,
-            labels=None,
-            images=None,
             image_features=projector_out
         )
-
-print(onnx_multimodal_inputs_embeds.shape)
-
-exit()
-
+# np.save("comparison/onnx_multimodal_input.npy", onnx_multimodal_input_embeds)
 
 # ---- LLM prefill ----
 sess = ort.InferenceSession(
-    "export_onnx/prefill_merged.onnx",
+    "export_onnx/prefill.onnx",
     providers=["CPUExecutionProvider"]
 )
 
 onnx_outputs = sess.run(
     None,
     {
-        "inputs_embeds": onnx_inputs_embeds.detach().cpu().numpy(),
-        "attention_mask": onnx_attention_mask_.cpu().numpy(),
+        "inputs_embeds": onnx_multimodal_input_embeds,
+        "attention_mask": onnx_attention_mask,
     }
 )
 
-onnx_logits = onnx_outputs[0]
-onnx_next_logit = onnx_logits[:, -1, :]
+onnx_logits = onnx_outputs[0]            # (1, 196, 32000)
+print(onnx_logits.shape)
+onnx_next_logit = onnx_logits[:, -1, :]  # (1, 32000)
+# np.save("comparison/onnx_next_logit.npy", onnx_next_logit)
 
 # ONNX KV
 onnx_kv = onnx_outputs[1:]
+# np.savez(
+#     "comparison/onnx_kv.npz",
+#     *onnx_kv
+# )

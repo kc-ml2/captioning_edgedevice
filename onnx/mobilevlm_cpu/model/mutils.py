@@ -33,6 +33,7 @@ def process_images(images, image_processor, model_cfg):
         new_images = torch.stack(new_images, dim=0)
     return new_images
 
+
 def tokenizer_image_token(prompt, tokenizer, return_tensors=None):
     prompt_chunks = [tokenizer(chunk).input_ids for chunk in prompt.split('<image>')]
 
@@ -59,9 +60,36 @@ def tokenizer_image_token(prompt, tokenizer, return_tensors=None):
     if return_tensors is not None:
         if return_tensors == 'pt':
             return torch.tensor(input_ids, dtype=torch.long)
-        elif return_tensors == 'np':
-            return np.array(input_ids, dtype=np.int64)
     return input_ids
+
+
+def tokenizer_image_token_onnx(prompt, tokenizer):
+    prompt_chunks = [
+        [tokenizer.bos_id()] + tokenizer.encode(chunk, out_type=int) 
+        for chunk in prompt.split('<image>')
+    ]
+    # prompt_chunks = [[chunk1], [chunk2]]
+    '''
+    [
+      [1, 319, 13563, ..., 29901, 29871],  # 1 is tokenizer.bos_token_id
+      [1, 29871, 13, ..., 13566, 29901]
+    ]
+    '''
+    
+    def insert_separator(X, sep):
+        return [ele for sublist in zip(X, [sep]*len(X)) for ele in sublist][:-1]
+
+    input_ids = []
+    offset = 0
+    
+    if len(prompt_chunks) > 0 and len(prompt_chunks[0]) > 0 and prompt_chunks[0][0] == tokenizer.bos_id():
+        offset = 1
+        input_ids.append(prompt_chunks[0][0])  # input_ids = [1]
+    
+    for x in insert_separator(prompt_chunks, [IMAGE_TOKEN_INDEX] * (offset + 1)):
+        input_ids.extend(x[offset:])  # input_ids = [1, 319, 13563, ..., -200, 29871, ..., 29901]
+
+    return np.array(input_ids, dtype=np.int64)
 
 
 import gc
