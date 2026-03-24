@@ -116,7 +116,7 @@ for k, v in pkv:
 # np.savez("comparison/pytorch_kv.npz", *pt_kv)
 
 
-# # ----- original code -----
+# # ----- original code (LLM prefill + decoder) -----
 
 # with torch.inference_mode():
 #     out_ids = model.generate(
