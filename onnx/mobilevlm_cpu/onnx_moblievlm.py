@@ -98,7 +98,6 @@ onnx_outputs = sess.run(
 )
 
 onnx_logits = onnx_outputs[0]            # (1, 196, 32000)
-print(onnx_logits.shape)
 onnx_next_logit = onnx_logits[:, -1, :]  # (1, 32000)
 # np.save("comparison/onnx_next_logit.npy", onnx_next_logit)
 
@@ -108,3 +107,60 @@ onnx_kv = onnx_outputs[1:]
 #     "comparison/onnx_kv.npz",
 #     *onnx_kv
 # )
+
+
+# ---- LLM decoder ----
+eos_token_id = 2
+max_new_tokens = 40
+generated_tokens = []
+
+cur_token = np.argmax(onnx_next_logit, axis=-1, keepdims=True)  # 512
+past_key_values = onnx_kv
+cur_len = past_key_values[-1][-1].shape[-2]  # 196
+generated_tokens.append(cur_token)
+
+
+# ---- LLM decoder ONNX session ----
+decoder_sess = ort.InferenceSession(
+    "export_onnx/decoder.onnx",
+    providers=["CPUExecutionProvider"]
+)
+
+for step in range(max_new_tokens - 1):
+
+    attention_mask = np.ones((1, cur_len + 1), dtype=np.int64)
+
+    ort_inputs = {
+        "input_ids": cur_token.astype(np.int64),
+        "attention_mask": attention_mask,
+    }
+
+    # ---- KV cache (flatten) ----
+    for i in range(len(past_key_values)):
+        ort_inputs[f"past_key_values_{i}"] = past_key_values[i]
+
+    # ---- ONNX runtime ----
+    outputs = decoder_sess.run(None, ort_inputs)
+
+    # ---- logits ----
+    logits = outputs[0]                                                # (1, 1, 32000)
+    next_token = np.argmax(logits[:, -1, :], axis=-1, keepdims=True)
+
+    generated_tokens.append(next_token)
+
+    # ---- EOS check ----
+    if next_token.item() == eos_token_id:
+        break
+    
+    # ---- KV cache update ----
+    past_key_values = list(outputs[1:])
+
+    # ---- next step ----
+    cur_token = next_token
+    cur_len += 1
+
+
+generated_tokens = np.concatenate(generated_tokens, axis=1)        # (1, T)
+onnx_generated_tokens = generated_tokens.squeeze(0)                # (T,)
+np.save("comparison/onnx_generated_tokens.npy", onnx_generated_tokens)
+print(onnx_generated_tokens)

@@ -90,8 +90,8 @@ with torch.no_grad():
         )
 # np.save("comparison/pytorch_multimodal_input.npy", torch_inputs_embeds.detach().cpu().numpy())
 
-
-# ---- LLM prefill ----
+# ---- LLM process ----
+# ---- LLM prefill step ----
 torch_inputs_embeds = torch_inputs_embeds.to(torch.float32)
 torch_attention_mask_ = torch_attention_mask_.to(torch.long)
 
@@ -103,9 +103,8 @@ with torch.no_grad():
         return_dict=True,                                 # Key: ['last_hidden_state', 'past_key_values']
     )
 
-pt_logits = model.lm_head(outputs.last_hidden_state)  # [1, 196, 32000]
+pt_next_logit = model.lm_head(outputs.last_hidden_state)[:, -1, :]  # [1, 32000]
 pkv = outputs.past_key_values                         # k,v = [1, 16, 196, 128] x 24 layers
-pt_next_logit = pt_logits[:, -1, :]
 # np.save("comparison/pytorch_next_logit.npy", pt_next_logit.cpu().numpy())
 
 # PyTorch KV
@@ -116,19 +115,66 @@ for k, v in pkv:
 # np.savez("comparison/pytorch_kv.npz", *pt_kv)
 
 
-# # ----- original code (LLM prefill + decoder) -----
+# ---- LLM decoder ----
+eos_token_id = 2
+max_new_tokens = GEN_KWARGS_DEFAULT["max_new_tokens"]
+generated_tokens = []
 
-# with torch.inference_mode():
-#     out_ids = model.generate(
-#         input_ids,                      # Text prompt token: [1, 319, ... , -200, ... , 29901]
-#         # images=image_tensor,          # Use original PyTorch model
-#         image_features=image_features,  # 
-#         **GEN_KWARGS_DEFAULT,
-#     )
+cur_token = torch.argmax(pt_next_logit, dim=-1, keepdim=True)  # 512
+past_key_values = pkv
+cur_len = past_key_values[-1][-1].shape[-2]  # 196
+generated_tokens.append(cur_token)
 
-# # Decode caption
-# gen_ids = out_ids[0][input_ids.shape[1] :]
-# text = tokenizer.batch_decode(gen_ids.unsqueeze(0), skip_special_tokens=True)[0]
-# caption = re.sub(r"\s+", " ", text).strip()
+# ---- autoregressive decoding ----
+for step in range(max_new_tokens - 1):  # Already prefill step done (cur_token)
 
-# print(f"caption: {caption}")
+    attention_mask = torch.ones(
+        (1, cur_len + 1),
+        dtype=torch.long,
+        device=cur_token.device
+    )
+
+    outputs = model.model(
+        input_ids=cur_token,
+        attention_mask=attention_mask,
+        past_key_values=past_key_values,
+        use_cache=True,
+        return_dict=True,
+    )
+
+    logits = model.lm_head(outputs.last_hidden_state)[:, -1, :]  # [1, 32000]
+    next_token = torch.argmax(logits, dim=-1, keepdim=True)      # [1, 1]
+
+    generated_tokens.append(next_token)
+
+    if next_token.item() == eos_token_id:
+        break
+    
+    past_key_values = outputs.past_key_values
+    cur_token = next_token
+    cur_len += 1
+
+generated_tokens = torch.cat(generated_tokens, dim=1)  # [1, T]
+pt_tokens = generated_tokens.squeeze().cpu().numpy()  # [T]
+np.save("comparison/pytorch_generated_tokens.npy", pt_tokens)
+print(pt_tokens)
+
+
+'''
+# ----- original code (LLM prefill + decoder) -----
+
+with torch.inference_mode():
+    out_ids = model.generate(
+        input_ids,                      # Text prompt token: [1, 319, ... , -200, ... , 29901]
+        # images=image_tensor,          # Use original PyTorch model
+        image_features=image_features,  # 
+        **GEN_KWARGS_DEFAULT,
+    )
+
+# Decode caption
+gen_ids = out_ids[0][input_ids.shape[1] :]
+text = tokenizer.batch_decode(gen_ids.unsqueeze(0), skip_special_tokens=True)[0]
+caption = re.sub(r"\s+", " ", text).strip()
+
+print(f"caption: {caption}")
+'''

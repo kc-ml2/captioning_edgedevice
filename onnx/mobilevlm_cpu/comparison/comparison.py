@@ -75,3 +75,14 @@ for i in range(len(pytorch_kv.files)):
 
 print("KV max diff:", np.max(kv_diffs))
 print("KV mean diff:", np.mean(kv_diffs))
+
+
+# ----- decoder comparison -----
+onnx_generated_tokens = np.load("onnx_generated_tokens.npy")
+pytorch_generated_tokens = np.load("pytorch_generated_tokens.npy")
+
+same = np.array_equal(onnx_generated_tokens, pytorch_generated_tokens)
+print(f"onnx_generated_tokens: {onnx_generated_tokens}")
+print(f"pytorch_generated_tokens: {pytorch_generated_tokens}")
+print("Number of generated_tokens:", len(pytorch_generated_tokens))
+print("generated_tokens match?:", same)
