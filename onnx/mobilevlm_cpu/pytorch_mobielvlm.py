@@ -9,7 +9,7 @@ import numpy as np
 import onnxruntime as ort
 
 from model.mobilevlm import load_pretrained_model
-from model.mutils import process_images, build_prompt, tokenizer_image_token, print_full_memory_report, to_int8_dynamic
+from model.mutils import process_images, build_prompt, tokenizer_image_token, torch_empty_kv
 
 
 # ---- Default values ---- #
@@ -79,7 +79,7 @@ with torch.no_grad():
 attention_mask = torch.ones_like(input_ids)
 
 with torch.no_grad():
-    _, torch_attention_mask_, _, torch_inputs_embeds, _ = \
+    _, torch_attention_mask_, _, torch_multimodals_inputs_embeds, _ = \
         model.prepare_inputs_labels_for_multimodal(
             input_ids,
             attention_mask,
@@ -88,93 +88,67 @@ with torch.no_grad():
             images=image_tensor,
             # image_features=pytorch_projector_out,
         )
-# np.save("comparison/pytorch_multimodal_input.npy", torch_inputs_embeds.detach().cpu().numpy())
+# np.save("comparison/pytorch_multimodal_input.npy", torch_multimodals_inputs_embeds.detach().cpu().numpy())
 
-# ---- LLM process ----
-# ---- LLM prefill step ----
-torch_inputs_embeds = torch_inputs_embeds.to(torch.float32)
-torch_attention_mask_ = torch_attention_mask_.to(torch.long)
-
-with torch.no_grad():
-    outputs = model.model(                                # MobileLlamaModel
-        inputs_embeds=torch_inputs_embeds,
-        attention_mask=torch_attention_mask_,
-        use_cache=True,
-        return_dict=True,                                 # Key: ['last_hidden_state', 'past_key_values']
-    )
-
-pt_next_logit = model.lm_head(outputs.last_hidden_state)[:, -1, :]  # [1, 32000]
-pkv = outputs.past_key_values                         # k,v = [1, 16, 196, 128] x 24 layers
-# np.save("comparison/pytorch_next_logit.npy", pt_next_logit.cpu().numpy())
-
-# PyTorch KV
-pt_kv = []
-for k, v in pkv:
-    pt_kv.append(k.cpu().numpy())
-    pt_kv.append(v.cpu().numpy())
-# np.savez("comparison/pytorch_kv.npz", *pt_kv)
-
-
-# ---- LLM decoder ----
+# ---- LLM prefill + decoder ----
 eos_token_id = 2
 max_new_tokens = GEN_KWARGS_DEFAULT["max_new_tokens"]
 generated_tokens = []
 
-cur_token = torch.argmax(pt_next_logit, dim=-1, keepdim=True)  # 512
-past_key_values = pkv
-cur_len = past_key_values[-1][-1].shape[-2]  # 196
-generated_tokens.append(cur_token)
+cur_embed = torch_multimodals_inputs_embeds.to(torch.float32)
+torch_kv = torch_empty_kv(model, batch_size=1, device="cpu")  # [24, 2, 1, 16, 0]
+
+cur_len = cur_embed.shape[-2] - 1
+
 
 # ---- autoregressive decoding ----
-for step in range(max_new_tokens - 1):  # Already prefill step done (cur_token)
+for step in range(max_new_tokens):
 
     attention_mask = torch.ones(
         (1, cur_len + 1),
         dtype=torch.long,
-        device=cur_token.device
+        device=cur_embed.device
     )
 
-    outputs = model.model(
-        input_ids=cur_token,
-        attention_mask=attention_mask,
-        past_key_values=past_key_values,
-        use_cache=True,
-        return_dict=True,
-    )
+    with torch.no_grad():
+        outputs = model.model(    # MobileLlamaModel
+            inputs_embeds=cur_embed,
+            attention_mask=attention_mask,
+            past_key_values=torch_kv,
+            use_cache=True,
+            return_dict=True,     # Key: ['last_hidden_state', 'past_key_values']
+        )
 
-    logits = model.lm_head(outputs.last_hidden_state)[:, -1, :]  # [1, 32000]
-    next_token = torch.argmax(logits, dim=-1, keepdim=True)      # [1, 1]
+    pt_next_logit = model.lm_head(outputs.last_hidden_state)[:, -1, :]  # [1, 32000]
+    torch_kv = outputs.past_key_values
 
-    generated_tokens.append(next_token)
+    cur_token = torch.argmax(pt_next_logit, dim=-1, keepdim=True)  # tensor([[512]])
+    cur_embed = model.model.embed_tokens(cur_token)                # tensor.Size([1, 1, 2048])
 
-    if next_token.item() == eos_token_id:
-        break
+    generated_tokens.append(cur_token)    # 512, 278, ...
     
-    past_key_values = outputs.past_key_values
-    cur_token = next_token
-    cur_len += 1
+    if cur_token.item() == eos_token_id:
+        break
+
 
 generated_tokens = torch.cat(generated_tokens, dim=1)  # [1, T]
 pt_tokens = generated_tokens.squeeze().cpu().numpy()  # [T]
-np.save("comparison/pytorch_generated_tokens.npy", pt_tokens)
+# np.save("comparison/pytorch_generated_tokens.npy", pt_tokens)
 print(pt_tokens)
 
-
 '''
-# ----- original code (LLM prefill + decoder) -----
-
+# ----- original inference code -----
 with torch.inference_mode():
-    out_ids = model.generate(
-        input_ids,                      # Text prompt token: [1, 319, ... , -200, ... , 29901]
-        # images=image_tensor,          # Use original PyTorch model
-        image_features=image_features,  # 
+    out_ids = model.generate(             # shape: [1,93]
+        input_ids,                        # Text prompt token: [1, 319, ... , -200, ... , 29901]
+        images=image_tensor,              # Use original PyTorch model
+        # image_features=image_features,
         **GEN_KWARGS_DEFAULT,
     )
 
-# Decode caption
-gen_ids = out_ids[0][input_ids.shape[1] :]
-text = tokenizer.batch_decode(gen_ids.unsqueeze(0), skip_special_tokens=True)[0]
-caption = re.sub(r"\s+", " ", text).strip()
+gen_ids = out_ids[0][input_ids.shape[1] :]  # [512, 278, 1967, 29892, ...]
+# text = tokenizer.batch_decode(gen_ids.unsqueeze(0), skip_special_tokens=True)[0]
+# caption = re.sub(r"\s+", " ", text).strip()
 
-print(f"caption: {caption}")
+# print(f"caption: {caption}")
 '''
