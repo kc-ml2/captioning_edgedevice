@@ -149,3 +149,80 @@ def print_full_memory_report(tag: str, model=None, pid=None):
     if rss_bytes > 0:
         ratio = weight_bytes / rss_bytes
         print(f"  Weight / RSS ratio        : {ratio:.2%}")
+
+
+def torch_empty_kv(
+    model,
+    batch_size=1,
+    device="cpu",
+    dtype=torch.float32,
+):
+    num_layers = len(model.model.layers)
+
+    attn = model.model.layers[0].self_attn
+
+    num_kv_heads = getattr(attn, "num_key_value_heads", attn.num_heads)
+    head_dim = attn.head_dim
+
+    empty_kv = []
+
+    for _ in range(num_layers):
+        k = torch.zeros(
+            (batch_size, num_kv_heads, 0, head_dim),
+            dtype=dtype,
+            device=device,
+        )
+        v = torch.zeros(
+            (batch_size, num_kv_heads, 0, head_dim),
+            dtype=dtype,
+            device=device,
+        )
+
+        empty_kv.append((k, v))   # ⭐ 핵심: tuple로 묶기
+
+    return empty_kv
+
+import numpy as np
+
+
+
+def np_empty_kv(batch_size=1, dtype=np.float32):
+    """
+    Create empty KV cache for decoder (NumPy version, no torch).
+
+    Args:
+        model: loaded model (used only for config access)
+        batch_size: batch size
+        dtype: numpy dtype (e.g., np.float32)
+
+    Returns:
+        List of (k, v) tuples for each layer
+    """
+
+    # Number of transformer layers
+    num_layers = 24
+
+
+    num_kv_heads = 16
+
+    # Head dimension
+    head_dim = 128
+
+    empty_kv = []
+
+    for _ in range(num_layers):
+        # Create empty key tensor: (B, num_kv_heads, 0, head_dim)
+        k = np.zeros(
+            (batch_size, num_kv_heads, 0, head_dim),
+            dtype=dtype,
+        )
+
+        # Create empty value tensor: (B, num_kv_heads, 0, head_dim)
+        v = np.zeros(
+            (batch_size, num_kv_heads, 0, head_dim),
+            dtype=dtype,
+        )
+
+        empty_kv.append((k, v))
+
+    return empty_kv
