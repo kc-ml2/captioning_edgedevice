@@ -41,7 +41,7 @@ Image captioning latency per image measured over 500 images.
 
 | Model        | Precision         | Load Latency | VRAM Usage | Inference Latency|
 |--------------|-------------------|--------------|------------|------------------|
-| BLIP base    | FP16              | 5 s          | 0.9 GiB    | 0.6 s            |
+| BLIP base    | FP16              | 5  s         | 0.9 GiB    | 0.6 s            |
 | InstructBLIP | FP16              | 12 s         | 10.7 GiB   | 2.0 s            |
 | InstructBLIP | Hybrid (INT4 LLM) | 15 s         | 6.9 GiB    | 2.7 s            |
 | InstructBLIP | INT4              | 20 s         | 5.0 GiB    | 2.7 s            |
