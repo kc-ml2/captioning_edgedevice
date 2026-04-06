@@ -28,7 +28,6 @@ def expand2square_np(img: np.ndarray, bg_color: np.ndarray) -> np.ndarray:
 
     size = max(h, w)
 
-    # float32 유지 (정밀도 보존)
     result = np.ones((size, size, c), dtype=img.dtype) * bg_color
 
     if w > h:

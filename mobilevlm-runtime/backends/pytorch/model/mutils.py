@@ -1,8 +1,8 @@
-# mutils.py
-
 import torch
+import numpy as np
 from PIL import Image
-from mobilevlm_cpu.model.constants import IMAGE_TOKEN_INDEX
+from model.vicuan_templete import conv_vicuna_v1
+from model.constants import IMAGE_TOKEN_INDEX
 
 
 def expand2square(pil_img, background_color):
@@ -34,9 +34,15 @@ def process_images(images, image_processor, model_cfg):
     return new_images
 
 
+def build_prompt(question: str) -> str:
+    conv = conv_vicuna_v1.copy()
+    conv.append_message(conv.roles[0], "<image>" + "\n" + question)
+    conv.append_message(conv.roles[1], None)
+    return conv.get_prompt()
+
+
 def tokenizer_image_token(prompt, tokenizer, return_tensors=None):
     prompt_chunks = [tokenizer(chunk).input_ids for chunk in prompt.split('<image>')]
-
     # prompt_chunks = [[chunk1], [chunk2]]
     '''
     [
@@ -44,18 +50,19 @@ def tokenizer_image_token(prompt, tokenizer, return_tensors=None):
       [1, 29871, 13, ..., 13566, 29901]
     ]
     '''
-
+    
     def insert_separator(X, sep):
         return [ele for sublist in zip(X, [sep]*len(X)) for ele in sublist][:-1]
 
     input_ids = []
     offset = 0
+    
     if len(prompt_chunks) > 0 and len(prompt_chunks[0]) > 0 and prompt_chunks[0][0] == tokenizer.bos_token_id:
         offset = 1
         input_ids.append(prompt_chunks[0][0])  # input_ids = [1]
-
+    
     for x in insert_separator(prompt_chunks, [IMAGE_TOKEN_INDEX] * (offset + 1)):
-        input_ids.extend(x[offset:])   # input_ids = [1, 319, 13563, ..., -200, 29871, ..., 29901]
+        input_ids.extend(x[offset:])  # input_ids = [1, 319, 13563, ..., -200, 29871, ..., 29901]
 
     if return_tensors is not None:
         if return_tensors == 'pt':
@@ -110,10 +117,8 @@ def to_int8_dynamic(model: torch.nn.Module) -> torch.nn.Module:
 
 
 import os, tempfile, torch, psutil
-
 def _fmt_mib(x_bytes: int) -> str:
     return f"{x_bytes / (1024**2):.2f} MiB"
-
 
 def get_state_dict_file_bytes(model) -> int:
     """
@@ -181,9 +186,6 @@ def torch_empty_kv(
         empty_kv.append((k, v))   # ⭐ 핵심: tuple로 묶기
 
     return empty_kv
-
-import numpy as np
-
 
 
 def np_empty_kv(batch_size=1, dtype=np.float32):

@@ -1,5 +1,3 @@
-# mobilellama.py
-
 from typing import List, Optional, Tuple, Union
 
 import torch
@@ -7,7 +5,7 @@ import torch.nn as nn
 from torch.nn import CrossEntropyLoss
 from transformers import AutoConfig, AutoModelForCausalLM, LlamaConfig, LlamaModel, LlamaForCausalLM
 from transformers.modeling_outputs import CausalLMOutputWithPast
-from mobilevlm_cpu.model.mobilevlm import MobileVLMMetaModel, MobileVLMMetaForCausalLM
+from model.mobilevlm import MobileVLMMetaModel, MobileVLMMetaForCausalLM
 
 
 # Reuse the LLaMA architecture settings for MobileVLM.
@@ -58,6 +56,7 @@ class MobileLlamaForCausalLM(LlamaForCausalLM, MobileVLMMetaForCausalLM):
             self.prepare_inputs_labels_for_multimodal(
                 input_ids, attention_mask, past_key_values, labels, images, image_features
             )
+
         # decoder outputs consists of (dec_features, layer_state, dec_hidden, dec_attn)
         outputs = self.model(
             input_ids=input_ids,

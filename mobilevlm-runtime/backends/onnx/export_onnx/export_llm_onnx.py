@@ -8,12 +8,12 @@ import torch
 import onnx
 from PIL import Image
 
-from mobilevlm_cpu.model.mobilevlm import load_pretrained_model
-from mobilevlm_cpu.model.mutils import process_images, build_prompt, tokenizer_image_token
+from model.mobilevlm import load_pretrained_model
+from model.mutils import process_images, build_prompt, tokenizer_image_token
 
 
 # ===============================
-# 1. Decoder Wrapper (단일 ONNX용)
+# 1. Decoder Wrapper (single ONNX)
 # ===============================
 class DecoderWrapper(torch.nn.Module):
     def __init__(self, model):
@@ -36,9 +36,9 @@ class DecoderWrapper(torch.nn.Module):
         outputs = self.model(
             inputs_embeds=inputs_embeds,
             attention_mask=attention_mask,
-            past_key_values=pkv,   # 항상 존재 (0-length 포함)
+            past_key_values=pkv,            # always provided (including zero-length)
             use_cache=True,
-            return_dict=False      # ONNX 안정성
+            return_dict=False               # for ONNX stability
         )
 
         hidden_states = outputs[0]
@@ -70,7 +70,7 @@ def main():
     model.eval()
 
     # ===============================
-    # 3. Prefill 실행 (shape 확보용)
+    # 3. Run prefill to obtain shapes
     # ===============================
     img_path = "../../000000000139.jpg"
     image = Image.open(img_path).convert("RGB")
@@ -102,7 +102,7 @@ def main():
     attention_mask_ = attention_mask_.to(torch.long)
 
     # ===============================
-    # 4. KV shape 추출
+    # 4. Extract KV shapes
     # ===============================
     with torch.no_grad():
         outputs = model.model(
@@ -116,20 +116,19 @@ def main():
     num_layers = len(pkv)
 
     # ===============================
-    # 5. Dummy Inputs (핵심)
+    # 5. Dummy Inputs
     # ===============================
 
-    # ✔ decode 기준 (1 token)
+    # decode step (1 token)
     dummy_inputs_embeds = torch.randn(1, 32, inputs_embeds.shape[-1], dtype=torch.float32)
 
-    # ✔ attention_mask는 dynamic
+    # attention_mask is dynamic
     dummy_attention_mask = torch.ones((1, 32), dtype=torch.long)
 
-    # ✔ 핵심: past_seq = 0
     dummy_pkv = []
     for k, v in pkv:
         shape = list(k.shape)
-        shape[-2] = 0   # ← 중요: past_seq = 0
+        shape[-2] = 0  # past_seq = 0          
 
         dummy_k = torch.zeros(shape, dtype=torch.float32)
         dummy_v = torch.zeros(shape, dtype=torch.float32)
@@ -143,7 +142,7 @@ def main():
     wrapper = DecoderWrapper(model).eval()
 
     # ===============================
-    # 7. Names
+    # 7. I/O names
     # ===============================
     input_names = ["inputs_embeds", "attention_mask"]
     for i in range(len(dummy_pkv)):

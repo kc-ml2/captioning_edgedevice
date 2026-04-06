@@ -1,4 +1,4 @@
-# onnx_multimodal_prefill.py
+# onnx_multimodal_input.py
 
 import numpy as np
 from mobilevlm_cpu.model.constants import IMAGE_TOKEN_INDEX

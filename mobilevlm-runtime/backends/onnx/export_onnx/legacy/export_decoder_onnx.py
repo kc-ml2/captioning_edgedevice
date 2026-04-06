@@ -8,8 +8,8 @@ import torch, onnx
 import numpy as np
 from PIL import Image
 
-from mobilevlm_cpu.model.mobilevlm import load_pretrained_model
-from mobilevlm_cpu.model.mutils import process_images, build_prompt, tokenizer_image_token
+from model.mobilevlm import load_pretrained_model
+from model.mutils import process_images, build_prompt, tokenizer_image_token
 
 
 # ===============================
@@ -23,7 +23,7 @@ class DecoderWrapper(torch.nn.Module):
 
     def forward(self, input_ids, attention_mask, *past_key_values):
 
-        # ---- flatten → tuple 복원 ----
+        # flatten → restore tuple
         pkv = []
         num_layers = len(past_key_values) // 2
 
@@ -32,12 +32,13 @@ class DecoderWrapper(torch.nn.Module):
             v = past_key_values[2*i + 1]
             pkv.append((k, v))
 
+
         outputs = self.model(
             input_ids=input_ids,
             attention_mask=attention_mask,
             past_key_values=pkv,
             use_cache=True,
-            return_dict=False   # ONNX 안정성
+            return_dict=False   # for ONNX stability
         )
 
         hidden_states = outputs[0]
@@ -46,7 +47,7 @@ class DecoderWrapper(torch.nn.Module):
         logits = self.lm_head(hidden_states)
         logits = logits[..., :32000]
 
-        # ---- KV flatten ----
+        # flatten KV
         flat_kv = []
         for k, v in present_kv:
             flat_kv.extend([k, v])
@@ -70,7 +71,7 @@ def main():
     model.eval()
 
     # ===============================
-    # 3. Prefill 먼저 실행해서 KV 얻기
+    # 3. Run prefill to obtain KV cache
     # ===============================
     img_path = "../../000000000139.jpg"
     image = Image.open(img_path).convert("RGB")
@@ -113,7 +114,7 @@ def main():
         pkv = outputs.past_key_values   # list[(k,v)]
 
     # ===============================
-    # 4. Dummy inputs (decoder용)
+    # 4. Dummy inputs (for decoder)
     # ===============================
     seq_len = pkv[0][0].shape[-2]   # 196
 
@@ -160,7 +161,7 @@ def main():
     )
 
     # ===============================
-    # 6. External weight 저장
+    # 6. Save external weights
     # ===============================
     model_onnx = onnx.load("decoders.onnx")
 

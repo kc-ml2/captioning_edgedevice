@@ -1,5 +1,3 @@
-# mobilevlm.py
-
 import torch
 import torch.nn as nn
 from abc import ABC, abstractmethod
@@ -7,12 +5,13 @@ try:
     from transformers import BitsAndBytesConfig
 except Exception:
     BitsAndBytesConfig = None
-from mobilevlm_cpu.model.vision_encoder import build_vision_tower
-from mobilevlm_cpu.model.vision_projector import build_vision_projector
-from mobilevlm_cpu.model.constants import IGNORE_INDEX, IMAGE_TOKEN_INDEX, \
+from model.vision_encoder import build_vision_tower
+from model.vision_projector import build_vision_projector
+from model.constants import IGNORE_INDEX, IMAGE_TOKEN_INDEX, \
     DEFAULT_IMAGE_PATCH_TOKEN, DEFAULT_IM_START_TOKEN, DEFAULT_IM_END_TOKEN
 
 
+# Initializes and manages the vision encoder and projector to produce image embeddings for the LLM.
 class MobileVLMMetaModel:
 
     def __init__(self, config):
@@ -59,6 +58,7 @@ class MobileVLMMetaModel:
         self.config.mm_projector_type = getattr(model_args, 'mm_projector_type', 'linear')
         self.config.mm_vision_select_layer = mm_vision_select_layer
         self.config.mm_vision_select_feature = mm_vision_select_feature
+
         # Build VisionTower
         vision_tower = build_vision_tower(model_args)
         if fsdp is not None and len(fsdp) > 0:
@@ -66,9 +66,11 @@ class MobileVLMMetaModel:
         else:
             self.vision_tower = vision_tower
         self.config.mm_hidden_size = vision_tower.hidden_size
+
         # Build Vision-Projector
         if getattr(self, 'mm_projector', None) is None:
             self.mm_projector = build_vision_projector(self.config)
+
         # In case it is frozen by LoRA
         for p in self.mm_projector.parameters():
             p.requires_grad = True
@@ -79,7 +81,7 @@ class MobileVLMMetaModel:
             self.mm_projector.load_state_dict(get_w(mm_projector_weights, 'mm_projector'))
 
 
-# Connects the vision encoder and LLM for multimodal processing
+# Connects the vision encoder and LLM for multimodal processing.
 class MobileVLMMetaForCausalLM(ABC):
 
     @abstractmethod
@@ -94,10 +96,10 @@ class MobileVLMMetaForCausalLM(ABC):
         image_features = self.get_model().mm_projector(image_features)
         return image_features
 
-    #  Prepare multi-modal inputs by inserting image features at <image> token positions
+    # Prepare multi-modal inputs by inserting image features at <image> token positions.
     def prepare_inputs_labels_for_multimodal(
         self, 
-        input_ids,           # text prompt token_id from tokenizer
+        input_ids,           # text prompt token_id from tokenizer: [1, 53]
         attention_mask, 
         past_key_values, 
         labels, 
@@ -108,6 +110,7 @@ class MobileVLMMetaForCausalLM(ABC):
         # prefill: seq_len > 1, decoding: seq_len == 1
         is_decoding_step = input_ids.shape[1] == 1
 
+        # Skip multimodal input construction processing (prefill) -> text-only LLM processing
         if (
             (vision_tower is None) or                         # Text-only model
             (images is None and image_features is None) or    # Text-only input
@@ -115,20 +118,20 @@ class MobileVLMMetaForCausalLM(ABC):
         ):
             # Adjust attention_mask to match KV cache length during decoding
             if (
-                (past_key_values is not None) and 
-                (vision_tower is not None) and 
-                (images is not None or image_features is not None) and 
-                (is_decoding_step)
+                (past_key_values is not None) and                       # KV cache available (used during decoding)
+                (vision_tower is not None) and                          # multimodal model
+                (images is not None or image_features is not None) and  # image input present
+                (is_decoding_step)                                      # decoding step
             ):
                 # Match attention_mask to KV cache length (+ current token)
                 attention_mask = torch.ones(
-                    (attention_mask.shape[0], past_key_values[-1][-1].shape[-2] + 1), 
+                    (attention_mask.shape[0], past_key_values[-1][-1].shape[-2] + 1),  # key/value: (B, num_heads, **seq_len**, head_dim)
                     dtype=attention_mask.dtype, 
                     device=attention_mask.device
                 )
             return input_ids, attention_mask, past_key_values, None, labels
-
-        # Use ONNX image_features if provided; otherwise compute with PyTorch
+        
+        # Use ONNX image_features if provided; otherwise compute with PyTorch.
         if image_features is None:
             if type(images) is list or images.ndim == 5:
                 concat_images = torch.cat([image for image in images], dim=0)
@@ -141,23 +144,20 @@ class MobileVLMMetaForCausalLM(ABC):
 
         else:
             if isinstance(image_features, list):
-                image_features = [
-                    x.to(device=input_ids.device, dtype=self.get_model().embed_tokens.weight.dtype) 
-                    for x in image_features
-                ]
+                image_features = [x.to(device=input_ids.device, dtype=self.get_model().embed_tokens.weight.dtype) for x in image_features]
             else:
-                image_features = image_features.to(
-                    device=input_ids.device, 
-                    dtype=self.get_model().embed_tokens.weight.dtype
-                )
+                image_features = image_features.to(device=input_ids.device, dtype=self.get_model().embed_tokens.weight.dtype)
 
+
+        # Multimodal input for LLM prefill step
         new_input_embeds = []
         new_labels = [] if labels is not None else None
         cur_image_idx = 0
         for batch_idx, cur_input_ids in enumerate(input_ids):
+            # multimodal LLM, but the current sample is not multimodal
+            # FIXME: this is a hacky fix, for deepspeed zero3 to work
+            # PASS
             if (cur_input_ids == IMAGE_TOKEN_INDEX).sum() == 0:
-                # multimodal LLM, but the current sample is not multimodal
-                # FIXME: this is a hacky fix, for deepspeed zero3 to work
                 half_len = cur_input_ids.shape[0] // 2
                 cur_image_features = image_features[cur_image_idx]
                 cur_input_embeds_1 = self.get_model().embed_tokens(cur_input_ids[:half_len])
@@ -168,15 +168,21 @@ class MobileVLMMetaForCausalLM(ABC):
                     new_labels.append(labels[batch_idx])
                 cur_image_idx += 1
                 continue
-            image_token_indices = torch.where(cur_input_ids == IMAGE_TOKEN_INDEX)[0]
+
+            image_token_indices = torch.where(cur_input_ids == IMAGE_TOKEN_INDEX)[0]  # tensor([35])
             cur_new_input_embeds = []
             if labels is not None:
                 cur_labels = labels[batch_idx]
                 cur_new_labels = []
                 assert cur_labels.shape == cur_input_ids.shape
+
+            # Replace each <image> token with image features
             while image_token_indices.numel() > 0:
-                cur_image_features = image_features[cur_image_idx]
-                image_token_start = image_token_indices[0]
+                cur_image_features = image_features[cur_image_idx]  # First image feature: [144, 2048]
+                image_token_start = image_token_indices[0]          # tensor(35)
+
+                # Use <im_start>/<im_end> tokens when training the multimodal adapter
+                # else
                 if getattr(self.config, 'tune_mm_mlp_adapter', False) and getattr(self.config, 'mm_use_im_start_end', False):
                     cur_new_input_embeds.append(self.get_model().embed_tokens(cur_input_ids[:image_token_start-1]).detach())
                     cur_new_input_embeds.append(self.get_model().embed_tokens(cur_input_ids[image_token_start-1:image_token_start]))
@@ -188,8 +194,8 @@ class MobileVLMMetaForCausalLM(ABC):
                         cur_new_labels.append(cur_labels[image_token_start:image_token_start+1])
                         cur_labels = cur_labels[image_token_start+2:]
                 else:
-                    cur_new_input_embeds.append(self.get_model().embed_tokens(cur_input_ids[:image_token_start]))
-                    cur_new_input_embeds.append(cur_image_features)
+                    cur_new_input_embeds.append(self.get_model().embed_tokens(cur_input_ids[:image_token_start]))  # [35, 2048]
+                    cur_new_input_embeds.append(cur_image_features)                                                # [[35, 2048], [144, 2048]]
                     if labels is not None:
                         cur_new_labels.append(cur_labels[:image_token_start])
                         cur_new_labels.append(torch.full((cur_image_features.shape[0],), IGNORE_INDEX, device=labels.device, dtype=labels.dtype))
@@ -199,7 +205,9 @@ class MobileVLMMetaForCausalLM(ABC):
                     cur_input_ids = cur_input_ids[image_token_start+2:]
                 else:
                     cur_input_ids = cur_input_ids[image_token_start+1:]
+                # Update indices of remaining <image> tokens after slicing
                 image_token_indices = torch.where(cur_input_ids == IMAGE_TOKEN_INDEX)[0]
+
             if cur_input_ids.numel() > 0:
                 if getattr(self.config, 'tune_mm_mlp_adapter', False) and getattr(self.config, 'mm_use_im_start_end', False):
                     cur_new_input_embeds.append(self.get_model().embed_tokens(cur_input_ids).detach())
@@ -207,7 +215,10 @@ class MobileVLMMetaForCausalLM(ABC):
                     cur_new_input_embeds.append(self.get_model().embed_tokens(cur_input_ids))
                 if labels is not None:
                     cur_new_labels.append(cur_labels)
+
+            # cur_new_input_embeds: [[35, 2048], [144, 2048], [17, 2048]]
             cur_new_input_embeds = [x.to(device=input_ids.device) for x in cur_new_input_embeds]
+            # cur_new_input_embeds: [196, 2048]
             cur_new_input_embeds = torch.cat(cur_new_input_embeds, dim=0)
             new_input_embeds.append(cur_new_input_embeds)
             if labels is not None:
@@ -330,7 +341,7 @@ def load_pretrained_model(model_path, load_8bit=False, load_4bit=False, device_m
         kwargs['torch_dtype'] = torch.float32 if is_cpu else torch.float16
     
     from transformers import LlamaTokenizer
-    from mobilevlm_cpu.model.mobilellama import MobileLlamaForCausalLM
+    from model.mobilellama import MobileLlamaForCausalLM
 
     tokenizer = LlamaTokenizer.from_pretrained(model_path, use_fast=False)
     model = MobileLlamaForCausalLM.from_pretrained(model_path, low_cpu_mem_usage=True, **kwargs)
@@ -338,8 +349,8 @@ def load_pretrained_model(model_path, load_8bit=False, load_4bit=False, device_m
     if is_cpu:
         model.to("cpu")
 
-    mm_use_im_start_end = getattr(model.config, "mm_use_im_start_end", False)
     mm_use_im_patch_token = getattr(model.config, "mm_use_im_patch_token", True)
+    mm_use_im_start_end = getattr(model.config, "mm_use_im_start_end", False)
     if mm_use_im_patch_token:
         tokenizer.add_tokens([DEFAULT_IMAGE_PATCH_TOKEN], special_tokens=True)
     if mm_use_im_start_end:
@@ -362,11 +373,3 @@ def load_pretrained_model(model_path, load_8bit=False, load_4bit=False, device_m
         context_len = 2048
     
     return tokenizer, model, image_processor, context_len
-
-
-from mobilevlm_cpu.model.vicuan_templete import conv_vicuna_v1
-def build_prompt(question: str) -> str:
-    conv = conv_vicuna_v1.copy()
-    conv.append_message(conv.roles[0], "<image>" + "\n" + question)
-    conv.append_message(conv.roles[1], None)
-    return conv.get_prompt()
