@@ -18,7 +18,7 @@ git clone https://github.com/Meituan-AutoML/MobileVLM
 ```
 
 
-## 🧠 Models
+## Models
 
 - BLIP
 - InstructBLIP (FLAN-T5)
@@ -37,7 +37,7 @@ GPU (NVIDIA TITAN V) memory usage is measured after the model is fully loaded an
 **Inference Latency**  
 Image captioning latency per image measured over 500 images.
 
-### 📊 Model Comparison
+### Model Comparison
 
 | Model        | Precision         | Load Latency | VRAM Usage | Inference Latency|
 |--------------|-------------------|--------------|------------|------------------|
