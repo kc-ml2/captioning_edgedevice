@@ -6,7 +6,7 @@ Supports multiple inference backends including PyTorch and ONNX with quantizatio
 ---
 
 ## 📂 Project Structure
-'''
+```bash
 captioning_edgedevice/ 
 ├── MobileVLM-v2-1.7b/ # MobileVLM model experiments 
 ├── blip-serving/ # BLIP / InstructBLIP server implementations 
@@ -14,4 +14,4 @@ captioning_edgedevice/
 ├── onnx_tutorial/ # ONNX conversion and usage examples 
 ├── README.md 
 └── requirements.txt
-'''
+```
