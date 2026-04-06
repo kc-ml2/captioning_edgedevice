@@ -3,7 +3,6 @@
 Lightweight image captioning system optimized for edge devices using BLIP / InstructBLIP and MobileVLM.  
 Supports multiple inference backends including PyTorch and ONNX with quantization (INT4/INT8).
 
----
 
 ## 📂 Project Structure
 ```bash
@@ -17,7 +16,7 @@ captioning_edgedevice/
 
 git clone https://github.com/Meituan-AutoML/MobileVLM
 ```
----
+
 
 ## 🧠 Models
 
@@ -25,7 +24,6 @@ git clone https://github.com/Meituan-AutoML/MobileVLM
 - InstructBLIP (FLAN-T5)
 - MobileVLM (v2-1.7B)
 
----
 
 ------------------------------------------------------------
 Performance and Latency 
