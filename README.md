@@ -26,7 +26,6 @@ git clone https://github.com/Meituan-AutoML/MobileVLM
 
 
 ## Performance and Latency 
-------------------------------------------------------------
 
 **Load Latency**  
 The model server loads the model once at startup and performs an initial warm-up pass.
@@ -49,7 +48,6 @@ Image captioning latency per image measured over 500 images.
 
 
 ## License
-------------------------------------------------------------
 
 Copyright (c) ML2.
 All rights reserved.
