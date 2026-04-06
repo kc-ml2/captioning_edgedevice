@@ -25,7 +25,7 @@ git clone https://github.com/Meituan-AutoML/MobileVLM
 - MobileVLM (v2-1.7B)
 
 
-Performance and Latency 
+## Performance and Latency 
 ------------------------------------------------------------
 
 **Load Latency**  
@@ -48,7 +48,7 @@ Image captioning latency per image measured over 500 images.
 | MobileVLM-v2 | INT4              | 11 s         | 2.1 GiB    | 2.6 s            |
 
 
-License
+## License
 ------------------------------------------------------------
 
 Copyright (c) ML2.
