@@ -1,7 +1,7 @@
 # onnx_multimodal_prefill.py
 
 import numpy as np
-from model.constants import IMAGE_TOKEN_INDEX
+from mobilevlm_cpu.model.constants import IMAGE_TOKEN_INDEX
 
 embedding_weight = np.load("export_onnx/embed_tokens.npy")  # (32000, 2048)
 

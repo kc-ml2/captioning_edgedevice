@@ -5,8 +5,8 @@ import numpy as np
 from PIL import Image
 import onnxruntime as ort
 
-from model.mobilevlm import load_pretrained_model
-from model.mutils import process_images, build_prompt, tokenizer_image_token
+from mobilevlm_cpu.model.mobilevlm import load_pretrained_model
+from mobilevlm_cpu.model.mutils import process_images, build_prompt, tokenizer_image_token
 
 
 # ===============================

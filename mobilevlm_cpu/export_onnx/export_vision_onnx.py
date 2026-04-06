@@ -3,8 +3,8 @@ import onnx
 import onnxruntime as ort
 import numpy as np
 
-from model.mobilevlm import load_pretrained_model, build_prompt
-from model.mutils import process_images, tokenizer_image_token, print_full_memory_report, to_int8_dynamic
+from mobilevlm_cpu.model.mobilevlm import load_pretrained_model, build_prompt
+from mobilevlm_cpu.model.mutils import process_images, tokenizer_image_token, print_full_memory_report, to_int8_dynamic
 
 
 device = torch.device("cpu")

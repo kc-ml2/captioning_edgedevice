@@ -5,9 +5,9 @@ import onnxruntime as ort
 from PIL import Image
 import sentencepiece as spm
 
-from model.mutils import build_prompt, tokenizer_image_token_onnx, np_empty_kv
-from onnx_preprocessor import preprocess_batch
-from onnx_multimodal_input import prepare_inputs_labels_for_multimodal_onnx
+from mobilevlm_cpu.model.mutils import build_prompt, tokenizer_image_token_onnx, np_empty_kv
+from mobilevlm_cpu.onnx_preprocessor import preprocess_batch
+from mobilevlm_cpu.onnx_multimodal_input import prepare_inputs_labels_for_multimodal_onnx
 
 
 # =========================

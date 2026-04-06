@@ -57,7 +57,7 @@ def _load_once():
         legacy=False,
     )
 
-    # 1) 전체 모델을 INT4로 로드 (주로 language_model이 메모리/연산 지배)
+    # 1) Load full model in INT4
     bnb_config = BitsAndBytesConfig(
         load_in_4bit=True,
         bnb_4bit_quant_type="fp4",
@@ -71,19 +71,17 @@ def _load_once():
         device_map="cuda",
     )
 
-    # 2) LLM(language_model)만 INT4로 유지하고, 나머지(vision/qformer/projection)는 FP16로 덮어쓰기
+    # 2) Keep LLM in INT4, convert others (vision/qformer/proj) to FP16
     fp16_model = InstructBlipForConditionalGeneration.from_pretrained(
         MODEL_ID,
         dtype=torch.float16,
         low_cpu_mem_usage=True,
     )
 
-    # non-LLM top-level modules (너가 확인한 이름 그대로)
+    # non-LLM top-level modules
     model.vision_model = fp16_model.vision_model.to(device).half()
     model.qformer = fp16_model.qformer.to(device).half()
     model.language_projection = fp16_model.language_projection.to(device).half()
-
-    # LLM은 INT4 유지: model.language_model 은 건드리지 말 것
 
     del fp16_model
     torch.cuda.empty_cache()

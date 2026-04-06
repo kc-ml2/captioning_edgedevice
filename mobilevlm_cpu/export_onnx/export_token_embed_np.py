@@ -1,6 +1,6 @@
 # export_token_embed_np.py
 
-from model.mobilevlm import load_pretrained_model
+from mobilevlm_cpu.model.mobilevlm import load_pretrained_model
 
 
 # HF model id or local path

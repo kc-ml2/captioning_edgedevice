@@ -4,7 +4,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = ""
 import torch
 import onnx
 
-from model.mobilevlm import load_pretrained_model
+from mobilevlm_cpu.model.mobilevlm import load_pretrained_model
 
 model_path = "mtgv/MobileVLM_V2-1.7B"
 

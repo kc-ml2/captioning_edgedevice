@@ -8,8 +8,8 @@ from typing import Dict
 import numpy as np
 import onnxruntime as ort
 
-from model.mobilevlm import load_pretrained_model
-from model.mutils import process_images, build_prompt, tokenizer_image_token, torch_empty_kv
+from mobilevlm_cpu.model.mobilevlm import load_pretrained_model
+from mobilevlm_cpu.model.mutils import process_images, build_prompt, tokenizer_image_token, torch_empty_kv
 
 
 # ---- Default values ---- #

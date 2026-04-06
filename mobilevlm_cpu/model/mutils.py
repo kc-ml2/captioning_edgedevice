@@ -2,7 +2,7 @@
 
 import torch
 from PIL import Image
-from model.constants import IMAGE_TOKEN_INDEX
+from mobilevlm_cpu.model.constants import IMAGE_TOKEN_INDEX
 
 
 def expand2square(pil_img, background_color):
