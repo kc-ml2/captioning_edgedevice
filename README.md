@@ -9,22 +9,6 @@ This project implements an image captioning pipeline designed for deployment in 
 - Supports FP16 and INT4 inference on GPU for BLIP and InstructBLIP
 - Supports FP32 ONNX inference on CPU for MobileVLM
 
-## 📂 Project Structure
-```bash
-captioning_edgedevice/
-├── src/
-│   ├── blip/                 # BLIP / InstructBLIP implementations
-│   └── mobilevlm/
-│       ├── runtime/
-│       │   ├── pytorch/      # PyTorch implementation
-│       │   └── onnx/         # ONNX implementation
-│       └── experiments/
-├── tutorial/                 # ONNX conversion & usage examples
-├── README.md
-├── requirements.txt
-└── sample.jpg
-```
-
 
 ## Models
 
