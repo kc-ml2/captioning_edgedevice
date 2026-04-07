@@ -96,4 +96,4 @@ All rights reserved.
 This project includes code derived from the MobileVLM repository,
 which is licensed under the Apache License 2.0.
 
-Modifications have been made for PyTorch runtime and edge-device inference.
+The official PyTorch-based MobileVLM was modified and exported to ONNX for edge-device inference.
