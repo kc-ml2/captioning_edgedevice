@@ -125,8 +125,6 @@ for step in range(max_new_tokens):
     generated_tokens.append(cur_token)    # 512, 278, ...
 
     cur_len += 1
-    
-    cur_len += 1
 
     if cur_token.item() == eos_token_id:
         break
