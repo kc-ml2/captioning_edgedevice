@@ -33,13 +33,23 @@ captioning_edgedevice/
 - MobileVLM (v2-1.7B)
 
 
-## Model weights
+## PyTorch weights
 
 The following pretrained models are used in this project:
 
 - BLIP: "Salesforce/blip-image-captioning-base"
 - InstructBLIP: "Salesforce/instructblip-flan-t5-xl"
 - MobileVLM: "mtgv/MobileVLM_V2-1.7B"
+
+## ONNX Weights
+
+Due to their large size (~6GB), ONNX model weights are not included in this repository.
+
+Instead, you can generate them locally using the provided export script:
+
+```bash
+python src/mobilevlm/runtime/onnx/export_onnx/export_mobilevlm_to_onnx.py
+```
 
 
 ## Quick Start with MobileVLM PyTorch
