@@ -6,7 +6,6 @@ Lightweight image captioning system optimized for edge devices using BLIP / Inst
 ## 📂 Project Structure
 ```bash
 captioning_edgedevice/ 
-├── MobileVLM-v2-1.7b/     # MobileVLM (cloned from official repo)
 ├── blip-serving/          # BLIP / InstructBLIP server implementations 
 ├── mobilevlm-runtime/     # PyTorch / ONNX runtime implementations 
 ├── onnx_tutorial/         # ONNX conversion and usage examples 
