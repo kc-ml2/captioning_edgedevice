@@ -47,6 +47,8 @@ python src/mobilevlm/runtime/pytorch/pytorch_mobilevlm.py
 
 #### Input 
 
+image: sample.jpg
+
 <img src="sample.jpg" width="400"/> 
 
 #### Output 
