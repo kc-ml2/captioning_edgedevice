@@ -1,9 +1,9 @@
 # Captioning Edge Device
 
-Lightweight image captioning system optimized for edge devices, supporting multiple vision-lanuage models with a focus on latency and memory efficiency.
+Lightweight image captioning system optimized for edge devices, supporting multiple vision-language models with a focus on latency and memory efficiency.
 
 ## Overview
-This project implements an image captioning pipeline designed for deployment in resource constrained environments.
+This project implements an image captioning pipeline designed for deployment in resource-constrained environments.
 
 - Supports multiple models: **BLIP**, **InstructBLIP**, **MobileVLM**
 - Supports FP16 and INT4 inference on GPU for BLIP and InstructBLIP
@@ -47,6 +47,14 @@ pip install -r requirements.txt
 python src/mobilevlm/runtime/pytorch/pytorch_mobilevlm.py
 ```
 
+## Example
+
+Input:
+sample.jpg
+
+Output:
+"In the image, there is a living room with a fireplace, a television, a table, chairs, and a woman standing in the kitchen."
+
 
 ## Performance and Latency 
 
@@ -57,7 +65,7 @@ The model server loads the model once at startup and performs an initial warm-up
 GPU (NVIDIA TITAN V) memory usage is measured after the model is fully loaded and warmed up.
 
 **Inference Latency**  
-Image captioning latency per image measured over 500 images COCO val 2017.
+Image captioning latency per image measured over 500 randomly sampled images from COCO val2017.
 
 ### Model Comparison
 
@@ -67,7 +75,6 @@ Image captioning latency per image measured over 500 images COCO val 2017.
 | InstructBLIP | FP16              | 12 s         | 10.7 GiB   | 2.0 s            |
 | InstructBLIP | Hybrid (INT4 LLM) | 15 s         | 6.9 GiB    | 2.7 s            |
 | InstructBLIP | INT4              | 20 s         | 5.0 GiB    | 2.7 s            |
-| MobileVLM-v2 | INT4              | 11 s         | 2.1 GiB    | 2.6 s            |
 
 
 ## Acknowledgement
