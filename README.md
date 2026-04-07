@@ -45,10 +45,11 @@ python src/mobilevlm/runtime/pytorch/pytorch_mobilevlm.py
 
 ### Result
 
-| Input | Output |
-|------|--------|
-| <img src="sample.jpg" width="500"/> | "In the image, there is a living room with a fireplace, a television, a table, chairs, and a woman standing in the kitchen." |
+Input
+<img src="sample.jpg" width="400"/>
 
+Output
+"In the image, there is a living room with a fireplace, a television, a table, chairs, and a woman standing in the kitchen."
 
 ## Performance and Latency 
 
