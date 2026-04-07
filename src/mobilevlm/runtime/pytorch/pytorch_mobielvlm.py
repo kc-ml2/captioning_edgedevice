@@ -1,15 +1,12 @@
 # pytorch_moblievlm.py
 
-import os, types
+import os
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
-import re, torch, argparse, time, gc
+import re, torch
 from PIL import Image
-from typing import Dict
-import numpy as np
-import onnxruntime as ort
 
-from mobilevlm_cpu.model.mobilevlm import load_pretrained_model
-from mobilevlm_cpu.model.mutils import process_images, build_prompt, tokenizer_image_token, torch_empty_kv
+from model.mobilevlm import load_pretrained_model
+from model.mutils import process_images, build_prompt, tokenizer_image_token, torch_empty_kv
 
 
 # ---- Default values ---- #
@@ -30,7 +27,7 @@ model.eval()  # MobileLlamaForCausalLM
 
 
 # ---- inference ----
-img_path = "000000000139.jpg"
+img_path = "sample.jpg"
 image = Image.open(img_path).convert("RGB")  # (426, 640, 3)
 
 
@@ -126,6 +123,8 @@ for step in range(max_new_tokens):
     cur_embed = model.model.embed_tokens(cur_token)                # tensor.Size([1, 1, 2048])
 
     generated_tokens.append(cur_token)    # 512, 278, ...
+
+    cur_len += 1
     
     cur_len += 1
 

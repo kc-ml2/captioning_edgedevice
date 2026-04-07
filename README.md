@@ -11,14 +11,18 @@ This project implements an image captioning pipeline designed for deployment in 
 
 ## 📂 Project Structure
 ```bash
-captioning_edgedevice/ 
-├── blip-serving/          # BLIP / InstructBLIP server implementations 
-├── mobilevlm-runtime/     # PyTorch / ONNX runtime implementations 
-├── onnx_tutorial/         # ONNX conversion and usage examples 
-├── README.md 
-└── requirements.txt
-
-git clone https://github.com/Meituan-AutoML/MobileVLM
+captioning_edgedevice/
+├── src/
+│   ├── blip/                 # BLIP / InstructBLIP implementations
+│   └── mobilevlm/            # MobileVLM runtime
+│       ├── runtime/
+│       │   ├── pytorch/      # PyTorch implementation
+│       │   └── onnx/         # ONNX implementation
+│       └── experiments/
+├── tutorial/                 # ONNX conversion & usage examples
+├── README.md
+├── requirements.txt
+└── sample.jpg
 ```
 
 
@@ -27,6 +31,16 @@ git clone https://github.com/Meituan-AutoML/MobileVLM
 - BLIP
 - InstructBLIP (FLAN-T5)
 - MobileVLM (v2-1.7B)
+
+
+## Quick Start with MobileVLM PyTorch
+
+```bash
+git clone https://github.com/kc-ml2/captioning_edgedevice
+cd captioning_edgedevice
+pip install -r requirements.txt
+python run.py
+```
 
 
 ## Performance and Latency 
@@ -38,7 +52,7 @@ The model server loads the model once at startup and performs an initial warm-up
 GPU (NVIDIA TITAN V) memory usage is measured after the model is fully loaded and warmed up.
 
 **Inference Latency**  
-Image captioning latency per image measured over 500 images.
+Image captioning latency per image measured over 500 images COCO val 2017.
 
 ### Model Comparison
 
@@ -51,7 +65,25 @@ Image captioning latency per image measured over 500 images.
 | MobileVLM-v2 | INT4              | 11 s         | 2.1 GiB    | 2.6 s            |
 
 
+## Acknowledgement
+
+This project is partially based on the MobileVLM repository:
+https://github.com/Meituan-AutoML/MobileVLM
+
+We adapted and modified the original implementation for:
+- PyTorch runtime
+- ONNX deployment
+- Edge-device inference optimization
+
+
 ## License
 
 Copyright (c) ML2.
 All rights reserved.
+
+This project includes code adapted from MobileVLM:
+https://github.com/Meituan-AutoML/MobileVLM
+
+MobileVLM is licensed under the Apache License, Version 2.0.
+
+Modifications have been made for PyTorch runtime and edge-device inference.
