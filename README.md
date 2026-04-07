@@ -91,9 +91,7 @@ We adapted and modified the original implementation for:
 Copyright (c) ML2.
 All rights reserved.
 
-This project includes code adapted from MobileVLM:
-https://github.com/Meituan-AutoML/MobileVLM
-
-MobileVLM is licensed under the Apache License, Version 2.0.
+This project includes code derived from the MobileVLM repository,
+which is licensed under the Apache License 2.0.
 
 Modifications have been made for PyTorch runtime and edge-device inference.
