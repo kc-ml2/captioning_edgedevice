@@ -98,14 +98,14 @@ generated_tokens = []
 cur_embed = torch_multimodals_inputs_embeds.to(torch.float32)
 torch_kv = torch_empty_kv(model, batch_size=1, device="cpu")  # [24, 2, 1, 16, 0]
 
-cur_len = cur_embed.shape[-2] - 1
+cur_len = cur_embed.shape[-2]
 
 
 # ---- autoregressive decoding ----
 for step in range(max_new_tokens):
 
     attention_mask = torch.ones(
-        (1, cur_len + 1),
+        (1, cur_len),
         dtype=torch.long,
         device=cur_embed.device
     )
@@ -127,6 +127,8 @@ for step in range(max_new_tokens):
 
     generated_tokens.append(cur_token)    # 512, 278, ...
     
+    cur_len += 1
+
     if cur_token.item() == eos_token_id:
         break
 
