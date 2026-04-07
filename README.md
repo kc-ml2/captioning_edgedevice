@@ -25,7 +25,7 @@ Due to their large size (~6GB), ONNX model weights are not included in this repo
 Instead, you can generate them locally using the provided export script:
 
 ```bash
-python src/mobilevlm/runtime/onnx/export_onnx/export_mobilevlm_to_onnx.py
+python src/mobilevlm/runtime/onnx/export_onnx/export_*.py
 ```
 
 
