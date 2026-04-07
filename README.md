@@ -29,7 +29,7 @@ python src/mobilevlm/runtime/onnx/export_onnx/export_*.py
 ```
 
 
-## Quick Start with MobileVLM PyTorch
+## Quick Start with MobileVLM (PyTorch)
 
 ```bash
 git clone https://github.com/kc-ml2/captioning_edgedevice
@@ -42,8 +42,6 @@ pip install --upgrade pip
 pip install -r requirements.txt
 python src/mobilevlm/runtime/pytorch/pytorch_mobilevlm.py
 ```
-
-## Example
 
 ### Input
 
