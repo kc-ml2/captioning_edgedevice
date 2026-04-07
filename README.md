@@ -43,13 +43,14 @@ pip install -r requirements.txt
 python src/mobilevlm/runtime/pytorch/pytorch_mobilevlm.py
 ```
 
-### Input
+### Result
 
-<img src="sample.jpg" width="400"/>
-
-### Output
-
-"In the image, there is a living room with a fireplace, a television, a table, chairs, and a woman standing in the kitchen."
++------------------------------+--------------------------------------------------------------------------------------------------+
+| Input | Output |
++------------------------------+--------------------------------------------------------------------------------------------------+
+| sample.jpg (width=300) | "In the image, there is a living room with a fireplace, a television, a table, chairs, and a |
+| | woman standing in the kitchen." |
++------------------------------+--------------------------------------------------------------------------------------------------+
 
 
 ## Performance and Latency 
