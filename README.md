@@ -38,8 +38,13 @@ captioning_edgedevice/
 ```bash
 git clone https://github.com/kc-ml2/captioning_edgedevice
 cd captioning_edgedevice
+
+python3 -m venv venv
+source venv/bin/activate
+
+pip install --upgrade pip
 pip install -r requirements.txt
-python run.py
+python src/mobilevlm/runtime/pytorch/pytorch_mobilevlm.py
 ```
 
 
