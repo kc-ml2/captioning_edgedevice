@@ -14,7 +14,7 @@ This project implements an image captioning pipeline designed for deployment in 
 captioning_edgedevice/
 ├── src/
 │   ├── blip/                 # BLIP / InstructBLIP implementations
-│   └── mobilevlm/            # MobileVLM runtime
+│   └── mobilevlm/
 │       ├── runtime/
 │       │   ├── pytorch/      # PyTorch implementation
 │       │   └── onnx/         # ONNX implementation
