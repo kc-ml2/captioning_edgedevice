@@ -5,19 +5,12 @@ Lightweight image captioning system optimized for edge devices, supporting multi
 ## Overview
 This project implements an image captioning pipeline designed for deployment in resource-constrained environments.
 
-- Supports multiple models: BLIP, InstructBLIP, MobileVLM
+- Supports multiple models: BLIP, InstructBLIP (FLAN-T5), MobileVLM (v2-1.7B)
 - Supports FP16 and INT4 inference on GPU for BLIP and InstructBLIP
 - Supports FP32 ONNX inference on CPU for MobileVLM
 
 
-## Models
-
-- BLIP
-- InstructBLIP (FLAN-T5)
-- MobileVLM (v2-1.7B)
-
-
-## PyTorch weights
+## PyTorch model weights
 
 The following pretrained models are used in this project:
 
@@ -25,7 +18,7 @@ The following pretrained models are used in this project:
 - InstructBLIP: "Salesforce/instructblip-flan-t5-xl"
 - MobileVLM: "mtgv/MobileVLM_V2-1.7B"
 
-## ONNX Weights
+## ONNX model Weights
 
 Due to their large size (~6GB), ONNX model weights are not included in this repository.
 
