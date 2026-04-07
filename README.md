@@ -1,7 +1,6 @@
 # Captioning Edge Device
 
-Lightweight image captioning system optimized for edge devices using BLIP / InstructBLIP and MobileVLM.  
-Supports multiple inference backends including PyTorch and ONNX with quantization (INT4/INT8).
+Lightweight image captioning system optimized for edge devices using BLIP / InstructBLIP and MobileVLM.
 
 
 ## 📂 Project Structure
