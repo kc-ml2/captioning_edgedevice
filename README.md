@@ -33,6 +33,15 @@ captioning_edgedevice/
 - MobileVLM (v2-1.7B)
 
 
+## Model weights
+
+The following pretrained models are used in this project:
+
+- BLIP: "Salesforce/blip-image-captioning-base"
+- InstructBLIP: "Salesforce/instructblip-flan-t5-xl"
+- MobileVLM: "mtgv/MobileVLM_V2-1.7B"
+
+
 ## Quick Start with MobileVLM PyTorch
 
 ```bash
