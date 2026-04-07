@@ -1,7 +1,11 @@
 # Captioning Edge Device
 
-Lightweight image captioning system optimized for edge devices using BLIP / InstructBLIP and MobileVLM.
+Lightweight image captioning system optimized for edge devices, supporting multiple vision-lanuage models with a focus on latency and memory efficiency.
 
+## Overview
+This project implements an image captioning pipeline designed for deployment in resource constrained environments.
+
+- Supports multiple models: **BLIP**, **InstructBLIP**, **MobileVLM**
 
 ## 📂 Project Structure
 ```bash
