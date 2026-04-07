@@ -58,7 +58,7 @@ with torch.no_grad():
 
 
 # ---- LLM part ----
-question = "What objects are visible in the image in detail."
+question = "What objects are visible in the image."
 prompt = build_prompt(question)
 
 input_ids = tokenizer_image_token(
@@ -132,9 +132,12 @@ for step in range(max_new_tokens):
 
 
 generated_tokens = torch.cat(generated_tokens, dim=1)  # [1, T]
-pt_tokens = generated_tokens.squeeze().cpu().numpy()  # [T]
+# pt_tokens = generated_tokens.squeeze().cpu().numpy()  # [T]
 # np.save("comparison/pytorch_generated_tokens.npy", pt_tokens)
-print(pt_tokens)
+
+text = tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
+caption = re.sub(r"\s+", " ", text[0]).strip()
+print(f"caption: {caption}")
 
 '''
 # ----- original inference code -----
