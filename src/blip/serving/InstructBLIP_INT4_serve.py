@@ -8,7 +8,7 @@ from PIL import Image
 
 from transformers import InstructBlipProcessor, InstructBlipForConditionalGeneration
 from transformers import BitsAndBytesConfig
-from utils import cuda_mem_mb, ms
+from src.blip.utils.utils import cuda_mem_mb, ms
 
 # ---- configuration ----
 HOST = "127.0.0.1"

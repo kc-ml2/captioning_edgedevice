@@ -5,7 +5,7 @@ from typing import List, Dict, Any
 import requests
 from tqdm import tqdm
 from pycocotools.coco import COCO
-from utils import save_timing_debug
+from src.blip.utils.utils import save_timing_debug
 
 
 def main():

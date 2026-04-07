@@ -1,4 +1,4 @@
-# BLIP_serve.py
+# hybridBLIP_serve.py
 import os, io, time, logging
 from contextlib import asynccontextmanager
 
@@ -7,20 +7,14 @@ from fastapi import FastAPI, UploadFile, File, HTTPException
 from PIL import Image
 
 from transformers import InstructBlipProcessor, InstructBlipForConditionalGeneration
-from transformers import BlipProcessor, BlipForConditionalGeneration
 from transformers import BitsAndBytesConfig
-from check_VRAM import _cuda_mem_snapshot, _cuda_mem_reset
+
 
 # ---- configuration ----
-from config import (
+from src.blip.configs.config import (
     HOST,
     PORT,
-    ModelFamily,
-    MODEL_FAMILY,
     MODEL_ID,
-    InferMode,
-    INFER_MODE,
-    TORCH_DTYPE,
     DEFAULT_PROMPT,
     GEN_KWARGS,
 )
@@ -31,12 +25,6 @@ logger = logging.getLogger("uvicorn.error")
 # ---- runtime state ----
 _loaded = False  # Ensures _load_once() runs only once per process.
 
-# BLIP runs without a prompt because it has no LLM, while InstructBLIP requires one.
-USE_PROMPT = (MODEL_FAMILY == ModelFamily.INSTRUCTBLIP)
-
-# Whether to use bitsandbytes quantized loading (INT8 / INT4)
-USE_BNB_QUANT = (INFER_MODE in (InferMode.INT8, InferMode.INT4))
-
 # ---- helpers ----
 # Prepare model inputs from the image and optional prompt
 def _prepare_inputs(img: Image.Image, text: str | None):
@@ -45,6 +33,7 @@ def _prepare_inputs(img: Image.Image, text: str | None):
     if "pixel_values" in inputs:
         inputs["pixel_values"] = inputs["pixel_values"].half()
     return inputs
+
 
 # ---- model initialization ----
 # Load the model and processor once and keep them resident on the GPU
@@ -60,71 +49,63 @@ def _load_once():
     assert torch.cuda.is_available(), "CUDA is required but not available."
     device = torch.device("cuda")
 
-    # Select the correct processor/model classes
-    if MODEL_FAMILY == ModelFamily.INSTRUCTBLIP:
-        ProcessorCls = InstructBlipProcessor
-        ModelCls = InstructBlipForConditionalGeneration
-    else:
-        ProcessorCls = BlipProcessor
-        ModelCls = BlipForConditionalGeneration
-
     t0 = time.perf_counter()
-    
-    # InstructBLIP requires explicitly setting legacy=False
-    processor_kwargs = {"use_fast": False}
-    if ProcessorCls is InstructBlipProcessor:
-        processor_kwargs["legacy"] = False
-    processor = ProcessorCls.from_pretrained(MODEL_ID, **processor_kwargs)
 
-    if USE_BNB_QUANT:
-        # INT8/INT4 quantized loading via bitsandbytes (no extra model download)
-        if INFER_MODE == InferMode.INT4:
-            bnb_config = BitsAndBytesConfig(
-                load_in_4bit=True,
-                bnb_4bit_quant_type="fp4",
-                bnb_4bit_use_double_quant=False,
-                bnb_4bit_compute_dtype=torch.float16,  # compute in fp16
-            )
-        else:  # InferMode.INT8
-            bnb_config = BitsAndBytesConfig(load_in_8bit=True)
+    processor = InstructBlipProcessor.from_pretrained(
+        MODEL_ID, 
+        use_fast=False,
+        legacy=False,
+    )
 
-        model = ModelCls.from_pretrained(
-            MODEL_ID,
-            quantization_config=bnb_config,
-            low_cpu_mem_usage=True,
-            device_map="cuda"
-        )
-    else:
-        # FP32/FP16/BF16 loading
-        model = ModelCls.from_pretrained(
-            MODEL_ID,
-            dtype=TORCH_DTYPE,
-            low_cpu_mem_usage=True,
-        ).to(device)
+    # 1) Load full model in INT4
+    bnb_config = BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_quant_type="fp4",
+        bnb_4bit_use_double_quant=False,
+        bnb_4bit_compute_dtype=torch.float16,  # compute in fp16
+    )
+    model = InstructBlipForConditionalGeneration.from_pretrained(
+        MODEL_ID,
+        quantization_config=bnb_config,
+        low_cpu_mem_usage=True,
+        device_map="cuda",
+    )
+
+    # 2) Keep LLM in INT4, convert others (vision/qformer/proj) to FP16
+    fp16_model = InstructBlipForConditionalGeneration.from_pretrained(
+        MODEL_ID,
+        dtype=torch.float16,
+        low_cpu_mem_usage=True,
+    )
+
+    # non-LLM top-level modules
+    model.vision_model = fp16_model.vision_model.to(device).half()
+    model.qformer = fp16_model.qformer.to(device).half()
+    model.language_projection = fp16_model.language_projection.to(device).half()
+
+    del fp16_model
+    torch.cuda.empty_cache()
+
     model.eval()
 
     # Run a dummy forward pass to warm up the model and initialize GPU kernels
     with torch.inference_mode():
         inputs = _prepare_inputs(
             img=Image.new("RGB", (224, 224), (0, 0, 0)), 
-            text="Answer:" if USE_PROMPT else None
+            text="Answer:"
         )
 
-        if USE_BNB_QUANT:
-            _ = model.generate(**inputs, max_new_tokens=2)
-        else:
-            with torch.autocast(device_type="cuda", dtype=TORCH_DTYPE):
-                _ = model.generate(**inputs, max_new_tokens=2)
+        _ = model.generate(**inputs, max_new_tokens=2)
 
         # Ensure all CUDA operations complete before proceeding
         torch.cuda.synchronize()
-    
+        
     # Mark as loaded only after successful load + warmup
     _loaded = True
 
     ds = time.perf_counter() - t0
     dt = ds * 1000
-    logger.info(f"[BOOT] Loaded: {MODEL_ID} on {device} in {ds:.1f} s ({dt:,.0f} ms)")
+    logger.info(f"[BOOT] Loaded: {MODEL_ID} in {ds:.1f} s ({dt:,.0f} ms)")
 
 
 # ---- application lifecycle ----
@@ -173,18 +154,14 @@ async def inference(
     # 2) preprocess
     inputs = _prepare_inputs(
         img=image, 
-        text=DEFAULT_PROMPT if USE_PROMPT else None
+        text=DEFAULT_PROMPT
     )
     t1 = time.perf_counter()
 
     # 3) forward
     with torch.inference_mode():
-        if USE_BNB_QUANT:
-            out = model.generate(**inputs, **GEN_KWARGS)
-        else:
-            with torch.autocast(device_type="cuda", dtype=TORCH_DTYPE):
-                out = model.generate(**inputs, **GEN_KWARGS)
-        torch.cuda.synchronize()
+        out = model.generate(**inputs, **GEN_KWARGS)
+        # torch.cuda.synchronize()
         t2 = time.perf_counter()
 
     # 4) postprocess
@@ -198,6 +175,7 @@ async def inference(
     }
 
     return {"caption": caption, "timings_ms": timings_ms}
+    # return {"caption": caption}
 
 # Called by the client once after all inference requests are completed.
 @app.post("/done")
@@ -211,7 +189,7 @@ def done():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(
-        "BLIP_serve:app", 
+        "hybridBLIP_serve:app", 
         host=HOST, 
         port=PORT, 
         workers=1, 
