@@ -6,6 +6,8 @@ Lightweight image captioning system optimized for edge devices, supporting multi
 This project implements an image captioning pipeline designed for deployment in resource constrained environments.
 
 - Supports multiple models: **BLIP**, **InstructBLIP**, **MobileVLM**
+- Supports FP16 and INT4 inference on GPU for BLIP and InstructBLIP
+- Supports FP32 ONNX inference on CPU for MobileVLM
 
 ## 📂 Project Structure
 ```bash
