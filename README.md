@@ -47,7 +47,7 @@ python src/mobilevlm/runtime/pytorch/pytorch_mobilevlm.py
 
 | Input | Output |
 |------|--------|
-| <img src="sample.jpg" width="600"/> | "In the image, there is a living room with a fireplace, a television, a table, chairs, and a woman standing in the kitchen." |
+| <img src="sample.jpg" width="500"/> | "In the image, there is a living room with a fireplace, a television, a table, chairs, and a woman standing in the kitchen." |
 
 
 ## Performance and Latency 
