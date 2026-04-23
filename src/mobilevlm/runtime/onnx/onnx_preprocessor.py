@@ -72,7 +72,7 @@ def preprocess_image(
 
     # 5. resize (CLIP uses bicubic)
     pil_img = Image.fromarray(img.astype(np.uint8))
-    pil_img = pil_img.resize((IMAGE_SIZE, IMAGE_SIZE), Image.BICUBIC)
+    pil_img = pil_img.resize((IMAGE_SIZE, IMAGE_SIZE), Image.LANCZOS)
     img = np.array(pil_img).astype(np.float32)
 
     # 6. rescale

@@ -11,32 +11,76 @@ struct ContentView: View {
     var body: some View {
         Text("Processing...")
             .onAppear {
-                processImage()
-                    
+                DispatchQueue.global(qos: .userInitiated).async {
+                    processImage()
+                }
             }
     }
 
     func processImage() {
         
-        let start = CFAbsoluteTimeGetCurrent()
-
-        
-        guard let uiImage = UIImage(named: "000000000139") else {
+        guard let uiImage = UIImage(named: "000000000139"),
+              let cgImage = uiImage.cgImage else {
             print("❌ Image load failed")
             return
         }
 
-        guard let inputTensor = preprocessImage(uiImage) else {
+        let width = cgImage.width
+        let height = cgImage.height
+        let squareSize = max(width, height)
+       
+
+        guard let rgb = extractRGB(from: uiImage) else {
             print("❌ Preprocess failed")
             return
         }
         
-        let end = CFAbsoluteTimeGetCurrent()
-        print("⏱ Total time: \((end - start) * 1000) ms")
+        let squareRGB = expandToSquare(
+            rgb: rgb,
+            width: width,
+            height: height,
+        )
 
-            
-        saveToDocuments(inputTensor, filename: "swift_chw.bin")
+        guard let squareImage = rgbToUIImage(
+            rgb: squareRGB,
+            width: squareSize,
+            height: squareSize
+        ) else {
+            print("❌ RGB → UIImage 실패")
+            return
+        }
 
+        guard let resized = resizeWithCI(squareImage) else {
+            print("❌ Resize 실패")
+            return
+        }
+
+        guard let resizedRGB = extractRGB(from: resized) else {
+            print("❌ RGB extraction 실패")
+            return
+        }
+        
+        let tensor = normalizeAndConvertToCHW(
+            rgb: resizedRGB,
+            width: 336,
+            height: 336
+        )
+        
+        guard let mlInput = makeMLMultiArraySafe(
+            from: tensor,
+            height: 336,
+            width: 336
+        ) else {
+            return
+        }
+        print("input strides:", mlInput.strides)
+        
+        guard let features = runVisionTower(mlInput: mlInput) else {
+            return
+        }
+
+        saveMLMultiArray(features, filename: "vision_out_coreml.bin")
+        
         print("✅ Done")
     }
 }
