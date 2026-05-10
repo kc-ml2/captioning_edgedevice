@@ -1,89 +1,58 @@
-//
-//  LLMDecoder.swift
-//
-
-import Foundation
 import CoreML
 
-// =====================================================
-// MARK: - Constants
-// =====================================================
-
-private let NUM_LAYERS = 24
-
-// =====================================================
-// MARK: - Output Struct
-// =====================================================
-
-struct LLMOutput {
-
-    let logits: MLMultiArray
-    let presentKeyValues: [MLMultiArray]
-}
-
-// =====================================================
-// MARK: - LLM Decoder
-// =====================================================
-
-func runLLMDecoder(
+func runLLM(
+    model: mobilevlm_dynamic,
     inputsEmbeds: MLMultiArray,
     attentionMask: MLMultiArray,
-    pastKeyValues: [MLMultiArray]
-) -> LLMOutput? {
+    pastKeyValues: [KVCache]
+) -> (
+    logits: MLMultiArray,
+    presentKeyValues: [KVCache]
+)? {
 
     do {
 
-        // =================================================
-        // 1. Load Model
-        // =================================================
+        // =========================
+        // Input Dictionary
+        // =========================
 
-        let config = MLModelConfiguration()
+        var inputDict: [String: Any] = [:]
 
-        config.computeUnits = .all
+        // inputs_embeds
+        inputDict["inputs_embeds"] = inputsEmbeds
 
-        let model = try MobileLlamaDecoder(
-            configuration: config
-        )
+        // attention_mask
+        inputDict["attention_mask"] = attentionMask
 
-        // =================================================
-        // 2. Build Input Dictionary
-        // =================================================
+        // KV cache
+        for layer in 0..<24 {
 
-        var inputs: [String: Any] = [:]
+            inputDict["past_key_\(layer)"] =
+                pastKeyValues[layer].key
 
-        inputs["inputs_embeds"] =
-            inputsEmbeds
-
-        inputs["attention_mask"] =
-            attentionMask
-
-        for i in 0..<pastKeyValues.count {
-
-            inputs["past_key_values_\(i)"] =
-                pastKeyValues[i]
+            inputDict["past_value_\(layer)"] =
+                pastKeyValues[layer].value
         }
 
-        // =================================================
-        // 3. Feature Provider
-        // =================================================
+        // =========================
+        // Feature Provider
+        // =========================
 
-        let provider =
-            try MLDictionaryFeatureProvider(
-                dictionary: inputs
-            )
+        let provider = try MLDictionaryFeatureProvider(
+            dictionary: inputDict
+        )
 
-        // =================================================
-        // 4. Prediction
-        // =================================================
+        // =========================
+        // Prediction
+        // =========================
 
-        let prediction =
-            try model.model.prediction(
-                from: provider
-            )
+        let prediction = try model.model.prediction(
+            from: provider
+        )
 
-        // =================================================
-        // 5. Get Logits
-        // =================================================
+        // =========================
+        // Logits
+        // =========================
 
         guard let logits =
             prediction.featureValue(
@@ -95,109 +64,53 @@ func runLLMDecoder(
             return nil
         }
 
-        print("✅ logits shape:", logits.shape)
+        // =========================
+        // Present KV Cache
+        // =========================
 
-        // =================================================
-        // 6. Get Present KV Cache
-        // =================================================
+        var presentKV: [KVCache] = []
 
-        var newKV: [MLMultiArray] = []
+        for layer in 0..<24 {
 
-        for layer in 0..<NUM_LAYERS {
+            guard
+                let key =
+                    prediction.featureValue(
+                        for: "present_key_\(layer)"
+                    )?.multiArrayValue,
 
-            // ---------------------------------------------
-            // Key
-            // ---------------------------------------------
-
-            let keyName =
-                "present_key_\(layer)"
-
-            guard let key =
-                prediction.featureValue(
-                    for: keyName
-                )?.multiArrayValue
+                let value =
+                    prediction.featureValue(
+                        for: "present_value_\(layer)"
+                    )?.multiArrayValue
             else {
 
-                print("❌ Missing \(keyName)")
+                print("❌ Missing KV output at layer \(layer)")
                 return nil
             }
 
-            // ---------------------------------------------
-            // Value
-            // ---------------------------------------------
-
-            let valueName =
-                "present_value_\(layer)"
-
-            guard let value =
-                prediction.featureValue(
-                    for: valueName
-                )?.multiArrayValue
-            else {
-
-                print("❌ Missing \(valueName)")
-                return nil
-            }
-
-            newKV.append(key)
-            newKV.append(value)
+            presentKV.append(
+                KVCache(
+                    key: key,
+                    value: value,
+                    validLength: 0
+                )
+            )
         }
 
-        print("✅ KV cache count:", newKV.count)
+        // =========================
+        // Return
+        // =========================
 
-        // =================================================
-        // 7. Return
-        // =================================================
-
-        return LLMOutput(
+        return (
             logits: logits,
-            presentKeyValues: newKV
+            presentKeyValues: presentKV
         )
 
     } catch {
 
-        print("❌ LLM inference failed:", error)
+        print("❌ LLM inference failed")
+        print(error)
+
         return nil
     }
-}
-
-// =====================================================
-// MARK: - Greedy Argmax
-// =====================================================
-
-func extractNextToken(
-    logits: MLMultiArray
-) -> Int {
-
-    let seqLen =
-        logits.shape[1].intValue
-
-    let vocabSize =
-        logits.shape[2].intValue
-
-    let ptr = logits.dataPointer.bindMemory(
-        to: Float32.self,
-        capacity: logits.count
-    )
-
-    let offset =
-        (seqLen - 1) * vocabSize
-
-    var maxValue: Float =
-        -Float.infinity
-
-    var token: Int = 0
-
-    for i in 0..<vocabSize {
-
-        let value = ptr[offset + i]
-
-        if value > maxValue {
-
-            maxValue = value
-            token = i
-        }
-    }
-
-    return token
 }

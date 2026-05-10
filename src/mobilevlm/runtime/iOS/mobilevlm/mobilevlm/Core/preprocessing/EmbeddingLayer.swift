@@ -22,19 +22,3 @@ func loadEmbeddingWeights() -> [Float] {
 
     return weights
 }
-
-func getEmbeddings(
-    weights: [Float],
-    tokenIds: [Int]
-) -> [[Float]] {
-
-    let hiddenDim = 2048
-
-    return tokenIds.map { tokenId in
-
-        let start = tokenId * hiddenDim
-        let end = start + hiddenDim
-
-        return Array(weights[start..<end])
-    }
-}
