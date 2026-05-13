@@ -145,7 +145,7 @@ Latency breakdown for a single image inference.
 | GPU             | -             | -              | -          | -             | 1.7 sec  |
 | CPU (Python)    | 0.04 sec      | 0.52 sec       | 0.01 sec   | 6.33 sec      | 6.90 sec |
 | CPU (ONNX)      | 0.03 sec      | 0.88 sec       | 0.02 sec   | 3.77 sec      | 4.70 sec |
-| Xcode (Core ML) | 0.12 sec      | 1.27 sec       | 0.02 sec   | 6.10 sec      | 7.51 sec |
+| iOS (Core ML) | 0.12 sec      | 1.27 sec       | 0.02 sec   | 6.10 sec      | 7.51 sec |
 
 
 ## Acknowledgement
