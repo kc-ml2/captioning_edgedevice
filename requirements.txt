@@ -25,8 +25,8 @@ sentencepiece==0.1.99
 sympy==1.14.0
 timm==0.9.12
 tokenizers==0.13.3
-torch==2.0.1
-torchvision==0.15.2
+torch==2.1.2
+torchvision==0.16.2
 tqdm==4.67.3
 transformers==4.33.1
 typing_extensions==4.15.0
