@@ -1,12 +1,12 @@
 import Foundation
 import CoreML
 
-func buildAttentionMask(curLen: Int) -> MLMultiArray? {
+func makePrefillAttentionMask(curPos: Int) -> MLMultiArray? {
 
     guard let attentionMask = try? MLMultiArray(
         shape: [
             NSNumber(value: 1),
-            NSNumber(value: curLen)
+            NSNumber(value: curPos)
         ],
         dataType: .int32
     ) else {

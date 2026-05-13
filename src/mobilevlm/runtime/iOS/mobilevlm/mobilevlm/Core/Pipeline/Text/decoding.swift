@@ -5,22 +5,11 @@ func decodeTokens(
     generatedTokens: [Int]
 ) -> String? {
 
-    guard let path = Bundle.main.path(
-        forResource: "tokenizer",
-        ofType: "model"
-    ) else {
-
-        print("❌ tokenizer.model not found")
-        return nil
-    }
-
     do {
 
-        let tokenizer = try SentencepieceTokenizer(
-            modelPath: path
-        )
+        let tokenizer =
+            ModelManager.shared.tokenizer
 
-        // restore original token ids
         let text = try tokenizer.decode(
             generatedTokens.map { $0 + 1 }
         )

@@ -1,7 +1,6 @@
 import CoreML
 
 func runLLM(
-    model: mobilevlm_dynamic,
     inputsEmbeds: MLMultiArray,
     attentionMask: MLMultiArray,
     pastKeyValues: [KVCache]
@@ -12,19 +11,17 @@ func runLLM(
 
     do {
 
-        // =========================
-        // Input Dictionary
-        // =========================
+        let model =
+            ModelManager.shared.llmModel
 
         var inputDict: [String: Any] = [:]
 
-        // inputs_embeds
-        inputDict["inputs_embeds"] = inputsEmbeds
+        inputDict["inputs_embeds"] =
+            inputsEmbeds
 
-        // attention_mask
-        inputDict["attention_mask"] = attentionMask
+        inputDict["attention_mask"] =
+            attentionMask
 
-        // KV cache
         for layer in 0..<24 {
 
             inputDict["past_key_\(layer)"] =
@@ -34,24 +31,18 @@ func runLLM(
                 pastKeyValues[layer].value
         }
 
-        // =========================
-        // Feature Provider
-        // =========================
+        let provider =
+            try MLDictionaryFeatureProvider(
+                dictionary: inputDict
+            )
 
-        let provider = try MLDictionaryFeatureProvider(
-            dictionary: inputDict
-        )
-
-        // =========================
-        // Prediction
-        // =========================
-
-        let prediction = try model.model.prediction(
-            from: provider
-        )
+        let prediction =
+            try model.model.prediction(
+                from: provider
+            )
 
         // =========================
-        // Logits
+        // logits
         // =========================
 
         guard let logits =
@@ -60,12 +51,11 @@ func runLLM(
             )?.multiArrayValue
         else {
 
-            print("❌ Failed to get logits")
             return nil
         }
 
         // =========================
-        // Present KV Cache
+        // present kv
         // =========================
 
         var presentKV: [KVCache] = []
@@ -84,7 +74,6 @@ func runLLM(
                     )?.multiArrayValue
             else {
 
-                print("❌ Missing KV output at layer \(layer)")
                 return nil
             }
 
@@ -92,14 +81,9 @@ func runLLM(
                 KVCache(
                     key: key,
                     value: value,
-                    validLength: 0
                 )
             )
         }
-
-        // =========================
-        // Return
-        // =========================
 
         return (
             logits: logits,
@@ -108,9 +92,7 @@ func runLLM(
 
     } catch {
 
-        print("❌ LLM inference failed")
         print(error)
-
         return nil
     }
 }

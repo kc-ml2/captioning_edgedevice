@@ -7,24 +7,47 @@ import CoreML
 
 struct ContentView: View {
 
-    @State private var pickerItem: PhotosPickerItem?
+    // =========================
+    // UI State
+    // =========================
+
+    @State private var picskerItem: PhotosPickerItem?
 
     @State private var selectedImage: UIImage?
 
-    @State private var questionText: String =
-        "What objects are visible in the image."
 
     @State private var captionText: String =
-        "Processing..."
-
-    @State private var hasRun = false
+        "Select an image."
+    
+    @State private var isProcessing = false
 
     var body: some View {
 
+        // =========================
+        // UI Layout
+        // =========================        
+        
         VStack(spacing: 20) {
+        
+            // =========================
+            // Image Picker UI
+            // =========================
+
+            PhotosPicker(
+                selection: $pickerItem,
+                matching: .images
+            ) {
+
+                Text("Select Image")
+                    .padding()
+                    .background(Color.blue)
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
+            }
+
 
             // =========================
-            // Image
+            // Image Preview UI
             // =========================
 
             if let image = selectedImage {
@@ -37,24 +60,7 @@ struct ContentView: View {
             }
 
             // =========================
-            // Question
-            // =========================
-
-            VStack(alignment: .leading, spacing: 8) {
-
-                Text("Question")
-                    .font(.headline)
-
-                Text(questionText)
-                    .frame(maxWidth: .infinity,
-                           alignment: .leading)
-            }
-            .padding()
-            .background(Color.gray.opacity(0.1))
-            .cornerRadius(12)
-
-            // =========================
-            // Caption
+            // Caption UI
             // =========================
 
             VStack(alignment: .leading, spacing: 8) {
@@ -73,239 +79,221 @@ struct ContentView: View {
             Spacer()
         }
         .padding()
-        .onAppear {
 
-            if !hasRun {
+        // =========================
+        // UI Event Handling
+        // =========================
+        
+        .onChange(of: pickerItem) {
 
-                hasRun = true
+            Task {
 
-                DispatchQueue.global(
-                    qos: .userInitiated
-                ).async {
+                guard let item = pickerItem else {
+                    return
+                }
 
-                    processmultimodal()
+                guard let data = try? await item.loadTransferable(
+                    type: Data.self
+                ) else {
+                    return
+                }
+
+                guard let uiImage = UIImage(data: data) else {
+                    return
+                }
+
+                DispatchQueue.main.async {
+
+                    self.selectedImage = uiImage
+
+                    guard !self.isProcessing else {
+                        return
+                    }
+
+                    self.isProcessing = true
+                    self.captionText = "Processing..."
+
+                    Task(priority: .userInitiated) {
+
+                        processmultimodal(
+                            uiImage: uiImage
+                        )
+                    }
                 }
             }
         }
     }
 
-    func processmultimodal() {
+    // =========================
+    // Multimodal Processing
+    // =========================
 
-        guard let uiImage = UIImage(named: "image"),
-              let cgImage = uiImage.cgImage else {
+    func processmultimodal(
+        uiImage: UIImage
+    ) {
 
-            print("❌ Image load failed")
+        defer {
+
+            // =========================
+            // Processing State Reset
+            // =========================
+
+            DispatchQueue.main.async {
+                self.isProcessing = false
+            }
+        }
+        
+
+        // =========================
+        // Vision Encoder
+        // =========================
+
+        guard let imageFeatures = encodeImage(uiImage)
+        else {
+            print("❌ Vision pipeline failed")
             return
         }
-
+        
         // =========================
-        // UI image update
+        // Multimodal Embedding
         // =========================
-
-        DispatchQueue.main.async {
-
-            self.selectedImage = uiImage
-        }
 
         let question =
-            "What objects are visible in the image."
+            "What objects are visible in the scene?"
 
-        let width = cgImage.width
-        let height = cgImage.height
-        let squareSize = max(width, height)
-       
-
-        guard let rgb = extractRGB(from: uiImage) else {
-            print("❌ Preprocess failed")
-            return
-        }
-        
-       
-        let squareRGB = expandToSquare(
-            rgb: rgb,
-            width: width,
-            height: height,
-        )
-        
-        let resizedRGB = resizeBilinear336(
-            img: squareRGB,
-            size: squareSize,
-        )
-        
-
-        
-        let tensor = normalizeAndConvertToCHW(
-            rgb: resizedRGB,
-            width: 336,
-            height: 336
-        )
-
-        
-
-        guard let mlInput = makeMLMultiArraySafe(
-            from: tensor,
-            height: 336,
-            width: 336
-        ) else {
+        guard let multimodalEmbeddings =
+            buildInputEmbeddings(
+                question: question,
+                imageFeatures: imageFeatures
+            ) else {
             return
         }
 
-        guard let visionOut = runVisionTower(mlInput: mlInput) else {
-            return
-        }
+        // =========================
+        // LLM Initialization
+        // =========================        
 
-        guard let projectorOut = runProjector(mlInput: visionOut) else {
-            print("❌ Projector failed")
-            return
-        }
-        
-        let prompt = buildPrompt(question: question)
-        let embeddingWeights = loadEmbeddingWeights()
-        
-        guard let ids = tokenizeImagePrompt(prompt: prompt) else {
-            print("❌ Tokenization failed")
-            return
-        }
-        
-        guard let multimodalEmbeddings = buildMultimodalEmbeddings(
-            inputIds: ids,
-            imageFeatures: projectorOut,
-            embeddingWeights: embeddingWeights
-        ) else {
-            print("❌ Failed to build multimodal embeddings")
-            return
-        }
-        
         var generatedTokens: [Int] = []
-        
-        // Shape already: [1, 194, 2048]
+
         let curEmbed = multimodalEmbeddings
 
-        // Current sequence length
-        var curPos = curEmbed.shape[1].intValue  // 194
+        var curPos =
+            curEmbed.shape[1].intValue + 1
 
-        
-        // Dummy KV cache
-        let kvCache = createEmptyKVCache(batchSize: 1)
+        let bufferManager = AppBufferManager.shared
 
+        bufferManager.resetKVCache()
+
+        let kvCache = bufferManager.kvCaches
         
-        guard let attentionMask = makePrefillAttentionMask(
-            curPos: curPos + 1
-        ) else {
+        let reusableNextEmbed =
+            bufferManager.reusableNextEmbed
+
+        guard let attentionMask =
+            makePrefillAttentionMask(
+                curPos: curPos
+            ) else {
             return
         }
         
-        var llmModel: mobilevlm_dynamic?
-
-        do {
-
-            let config = MLModelConfiguration()
-            config.computeUnits = .all
-
-            llmModel = try mobilevlm_dynamic(
-                configuration: config
+        let maskPtr =
+            attentionMask.dataPointer.bindMemory(
+                to: Int32.self,
+                capacity: attentionMask.count
             )
 
-            print("✅ Model loaded")
+        maskPtr[0] = 0
+        
 
-        } catch {
+        // =========================
+        // Prefill Stage
+        // =========================
 
-            print(error)
-            return
-        }
-
-        guard let model = llmModel else {
-            return
-        }
 
         guard let result = runLLM(
-            model: model,
             inputsEmbeds: curEmbed,
             attentionMask: attentionMask,
             pastKeyValues: kvCache
         ) else {
             return
         }
-        
+
         let logits = result.logits
         
-
         let nextToken = getNextToken(
             logits: logits
         )
 
-//        print("✅ next token:", nextToken)
-        
         var currentKV = result.presentKeyValues
-        
-        guard var nextEmbed = buildNextTokenEmbedding(
+
+        updateNextTokenEmbedding(
             tokenId: nextToken,
-            embeddingWeights: embeddingWeights
-        ) else {
-            return
-        }
-        
+            embedBuffer: reusableNextEmbed
+        )
+
         generatedTokens.append(nextToken)
 
-        
+        curPos += 1
+
         let maxNewTokens = 40
         let eosTokenId = 2
 
+        // =========================
+        // Decoder Loop
+        // =========================
+
+
         for _ in 0..<(maxNewTokens - 1) {
 
-            guard let attentionMask = makePrefillAttentionMask(
-                curPos: curPos + 2
-            ) else {
+            guard let attentionMask =
+                makePrefillAttentionMask(
+                    curPos: curPos
+                ) else {
                 return
             }
 
-            // dummy KV masking
-            let maskPtr = attentionMask.dataPointer.bindMemory(
-                to: Int32.self,
-                capacity: attentionMask.count
-            )
+            let maskPtr =
+                attentionMask.dataPointer.bindMemory(
+                    to: Int32.self,
+                    capacity: attentionMask.count
+                )
+
             maskPtr[0] = 0
-            
+
             guard let result = runLLM(
-                model: model,
-                inputsEmbeds: nextEmbed,
+                inputsEmbeds: reusableNextEmbed,
                 attentionMask: attentionMask,
                 pastKeyValues: currentKV
             ) else {
                 return
             }
-            
+
             let logits = result.logits
-            
 
             let nextToken = getNextToken(
                 logits: logits
             )
 
-//            print("✅ next token:", nextToken)
-            
             currentKV = result.presentKeyValues
-            
-            guard let newEmbed = buildNextTokenEmbedding(
-                tokenId: nextToken,
-                embeddingWeights: embeddingWeights
-            ) else {
-                return
-            }
 
-            nextEmbed = newEmbed
-            let nextPos = curPos + 1
-            
+            updateNextTokenEmbedding(
+                tokenId: nextToken,
+                embedBuffer: reusableNextEmbed
+            )
+
             generatedTokens.append(nextToken)
-            
+
             if nextToken == eosTokenId {
                 break
             }
-            
-            curPos = nextPos
-            
+
+            curPos += 1
         }
-        
+
+        // =========================
+        // Token Decoding
+        // =========================
+
         guard let caption = decodeTokens(
             generatedTokens: generatedTokens
         ) else {
@@ -320,11 +308,7 @@ struct ContentView: View {
 
         DispatchQueue.main.async {
 
-            self.questionText = question
             self.captionText = caption
         }
-        
-        
-        print("Done")
     }
 }

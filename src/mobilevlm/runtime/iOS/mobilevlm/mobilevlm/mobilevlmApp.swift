@@ -1,16 +1,27 @@
-//
-//  mobilevlmApp.swift
-//  mobilevlm
-//
-//  Created by hyeongseob jo on 4/14/26.
-//
-
 import SwiftUI
 
 @main
 struct mobilevlmApp: App {
+
+    init() {
+
+        // =========================
+        // CoreML Model Preload
+        // =========================
+
+        _ = ModelManager.shared
+
+        // =========================
+        // Buffer Preload
+        // =========================
+
+        _ = AppBufferManager.shared
+    }
+
     var body: some Scene {
+
         WindowGroup {
+
             ContentView()
         }
     }
