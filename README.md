@@ -31,7 +31,7 @@ This project implements an image captioning pipeline designed for deployment in 
 
 ### PyTorch
 
-The following pretrained models are used in this project:
+The following pretrained models from Hugging Face are used in this project:
 
 - BLIP: "Salesforce/blip-image-captioning-base"
 - InstructBLIP: "Salesforce/instructblip-flan-t5-xl"
