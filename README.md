@@ -3,7 +3,6 @@
 ![Python](https://img.shields.io/badge/Python-3.10-blue)
 ![ONNX](https://img.shields.io/badge/ONNX-Supported-green)
 ![CoreML](https://img.shields.io/badge/CoreML-iOS-orange)
-![License](https://img.shields.io/badge/License-Apache%202.0-lightgrey)
 
 
 <p align="center">
