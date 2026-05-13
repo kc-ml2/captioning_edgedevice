@@ -11,7 +11,7 @@ This project implements an image captioning pipeline designed for deployment in 
 
 - Supports multiple models: BLIP, InstructBLIP (FLAN-T5), MobileVLM (v2-1.7B)
 - Supports FP16 and INT4 inference on GPU for BLIP and InstructBLIP
-- Supports FP32 PyTorch and ONNX inference on CPU for MobileVLM
+- Supports FP32 PyTorch and ONNX inference Giton CPU for MobileVLM
 
 
 ## PyTorch model weights
