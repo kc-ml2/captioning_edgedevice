@@ -122,14 +122,14 @@ Second, open the iOS project in Xcode and add the following Swift Package depend
 
 How to add the Swift Package:
 
-`File` > `Add Pacakge Dependencies` > Search `swift-sentencepiece`
+`File` > `Add Pacakge Dependencies` > Search `swift-sentencepiece` > Add Package
 
 Third, add the following resources to your Xcode project:
 
 - `captioning_edgedevice/src/mobilevlm/runtime/iOS/`
-- Exported Core ML model weights: `VisionEncoder_32.mlpackage` , `Projector_32.mlpackage` , `embed_tokens.bin` , `mobilellama_32.mlpackage` , `tokenizer.model`
+- Exported Core ML model weights: `VisionEncoder_32.mlpackage` , `Projector_32.mlpackage` , `embed_tokens.bin` , `tokenizer.model` , `mobilellama_32.mlpackage`
 
-Finally, and run this project.
+Finally, run this project.
 
 
 ## Result
