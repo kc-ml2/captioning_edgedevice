@@ -1,4 +1,4 @@
-accelerate==0.21.0
+accelerate==1.10.1
 certifi==2026.2.25
 charset-normalizer==3.4.7
 coremltools==9.0
@@ -24,10 +24,10 @@ safetensors==0.7.0
 sentencepiece==0.1.99
 sympy==1.14.0
 timm==0.9.12
-tokenizers==0.13.3
+tokenizers==0.20.3
 torch==2.1.2
 torchvision==0.16.2
 tqdm==4.67.3
-transformers==4.33.1
+transformers==4.46.3
 typing_extensions==4.15.0
 urllib3==2.6.3
