@@ -116,3 +116,4 @@ func buildMultimodalEmbeddings(
 
     return output
 }
+

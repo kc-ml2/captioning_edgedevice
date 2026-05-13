@@ -10,8 +10,8 @@ struct ContentView: View {
     // =========================
     // UI State
     // =========================
-
-    @State private var picskerItem: PhotosPickerItem?
+    
+    @State private var pickerItem: PhotosPickerItem?
 
     @State private var selectedImage: UIImage?
 
@@ -25,14 +25,14 @@ struct ContentView: View {
 
         // =========================
         // UI Layout
-        // =========================        
+        // =========================
         
         VStack(spacing: 20) {
-        
+            
             // =========================
-            // Image Picker UI
+            // Image
             // =========================
-
+            
             PhotosPicker(
                 selection: $pickerItem,
                 matching: .images
@@ -45,11 +45,6 @@ struct ContentView: View {
                     .cornerRadius(10)
             }
 
-
-            // =========================
-            // Image Preview UI
-            // =========================
-
             if let image = selectedImage {
 
                 Image(uiImage: image)
@@ -60,7 +55,7 @@ struct ContentView: View {
             }
 
             // =========================
-            // Caption UI
+            // Caption
             // =========================
 
             VStack(alignment: .leading, spacing: 8) {
@@ -79,7 +74,7 @@ struct ContentView: View {
             Spacer()
         }
         .padding()
-
+        
         // =========================
         // UI Event Handling
         // =========================
@@ -131,14 +126,22 @@ struct ContentView: View {
     func processmultimodal(
         uiImage: UIImage
     ) {
-
+        
+        let totalStart = CFAbsoluteTimeGetCurrent()
+        
         defer {
 
+            print(String(
+                format: "⏱ Total Time: %.3f sec",
+                CFAbsoluteTimeGetCurrent() - totalStart
+            ))
+            
             // =========================
             // Processing State Reset
             // =========================
 
             DispatchQueue.main.async {
+
                 self.isProcessing = false
             }
         }
@@ -154,9 +157,16 @@ struct ContentView: View {
             return
         }
         
+        inspectArray(
+            name: "imageFeatures",
+            array: imageFeatures
+        )
+        
         // =========================
         // Multimodal Embedding
         // =========================
+
+        let mmInputStart = CFAbsoluteTimeGetCurrent()
 
         let question =
             "What objects are visible in the scene?"
@@ -166,12 +176,19 @@ struct ContentView: View {
                 question: question,
                 imageFeatures: imageFeatures
             ) else {
+
             return
         }
+        
+        inspectArray(
+            name: "multimodalEmbeddings",
+            array: multimodalEmbeddings
+        )
 
-        // =========================
-        // LLM Initialization
-        // =========================        
+        print(String(
+            format: "⏱ Multimodal Input Time: %.3f sec",
+            CFAbsoluteTimeGetCurrent() - mmInputStart
+        ))
 
         var generatedTokens: [Int] = []
 
@@ -186,6 +203,7 @@ struct ContentView: View {
 
         let kvCache = bufferManager.kvCaches
         
+
         let reusableNextEmbed =
             bufferManager.reusableNextEmbed
 
@@ -204,11 +222,17 @@ struct ContentView: View {
 
         maskPtr[0] = 0
         
-
+        inspectArray(
+            name: "attentionMask",
+            array: attentionMask
+        )
+        
+        
         // =========================
-        // Prefill Stage
+        // Prefill
         // =========================
 
+        let prefillStart = CFAbsoluteTimeGetCurrent()
 
         guard let result = runLLM(
             inputsEmbeds: curEmbed,
@@ -218,8 +242,18 @@ struct ContentView: View {
             return
         }
 
+        print(String(
+            format: "⏱ Prefill Time: %.3f sec",
+            CFAbsoluteTimeGetCurrent() - prefillStart
+        ))
+
         let logits = result.logits
         
+        inspectArray(
+            name: "logits",
+            array: logits
+        )
+
         let nextToken = getNextToken(
             logits: logits
         )
@@ -239,9 +273,10 @@ struct ContentView: View {
         let eosTokenId = 2
 
         // =========================
-        // Decoder Loop
+        // Decoder
         // =========================
 
+        let decoderStart = CFAbsoluteTimeGetCurrent()
 
         for _ in 0..<(maxNewTokens - 1) {
 
@@ -290,8 +325,13 @@ struct ContentView: View {
             curPos += 1
         }
 
+        print(String(
+            format: "⏱ Avg Decoder Time per Toekn: %.3f sec",
+            (CFAbsoluteTimeGetCurrent() - decoderStart) / Double(generatedTokens.count)
+        ))
+
         // =========================
-        // Token Decoding
+        // Decode Tokens
         // =========================
 
         guard let caption = decodeTokens(

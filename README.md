@@ -95,7 +95,7 @@ python src/mobilevlm/runtime/export/export_onnx/export_llm_onnx.py
 
 We need only these weights related ONNX: 
 
-'mm_projector.onnx' , 'mobilellama.onnx' , 'mobilellama.weights.bin' , 'vision_tower.onnx' , 'embed_tokens.npy' , 'tokenizer.model'
+`mm_projector.onnx` , `mobilellama.onnx` , `mobilellama.weights.bin` , `vision_tower.onnx` , `embed_tokens.npy` , `tokenizer.model`
 
 Run inference:
 ```bash
@@ -116,15 +116,15 @@ python src/mobilevlm/runtime/export/export_coreml/export_llm_coreml.py
 ```
 
 Second, open the iOS project in Xcode and add the following Swift Package dependencies:
-- 'swift-argument-parser' (1.7.1)
-- 'swift-sentencepiece' (0.0.6)
+- `swift-argument-parser` (1.7.1)
+- `swift-sentencepiece` (0.0.6)
 
 Third, add the following resources to your Xcode project:
 
 - `captioning_edgedevice/src/mobilevlm/runtime/iOS/`
-- Exported Core ML model weights
+- Exported Core ML model weights: `VisionEncoder_32.mlpackage` , `Projector_32.mlpackage` , `embed_tokens.bin` , `mobilellama_32.mlpackage`
 
-Finally, open the Xcode project and run it on an iOS device.
+Finally, and run this project.
 
 
 ## Result
