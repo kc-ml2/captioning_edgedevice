@@ -8,8 +8,8 @@ import torch
 import onnx
 from PIL import Image
 
-from model.mobilevlm import load_pretrained_model
-from model.mutils import process_images, build_prompt, tokenizer_image_token
+from pytorch.model.mobilevlm import load_pretrained_model
+from pytorch.model.mutils import process_images, build_prompt, tokenizer_image_token
 
 
 # ===============================
@@ -72,7 +72,7 @@ def main():
     # ===============================
     # 3. Run prefill to obtain shapes
     # ===============================
-    img_path = "../../000000000139.jpg"
+    img_path = "sample.jpg"
     image = Image.open(img_path).convert("RGB")
 
     image_tensor = process_images([image], image_processor, model.config)

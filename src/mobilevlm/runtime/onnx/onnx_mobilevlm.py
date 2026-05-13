@@ -1,44 +1,39 @@
 import re
-import torch
+import time
 import numpy as np
 import onnxruntime as ort
 from PIL import Image
 import sentencepiece as spm
 
-from mobilevlm_cpu.model.mutils import build_prompt, tokenizer_image_token_onnx, np_empty_kv
-from mobilevlm_cpu.onnx_preprocessor import preprocess_batch
-from mobilevlm_cpu.onnx_multimodal_input import prepare_inputs_labels_for_multimodal_onnx
+from utils_onnx import build_prompt, tokenizer_image_token_onnx, np_empty_kv
+from onnx_preprocessor import preprocess_batch
+from onnx_multimodal_input import build_multimodal_embeddings
 
+
+total_start_time = time.perf_counter()
 
 # =========================
 # 0. Config
 # =========================
-IMG_PATH = "000000000139.jpg"
+IMG_PATH = "sample.jpg"
 
-VISION_MODEL_PATH    = "export_onnx/vision_tower.onnx"
-PROJECTOR_MODEL_PATH = "export_onnx/mm_projector.onnx"
-DECODER_MODEL_PATH   = "export_onnx/mobilellama.onnx"
+VISION_MODEL_PATH    = "vision_tower.onnx"
+PROJECTOR_MODEL_PATH = "mm_projector.onnx"
+DECODER_MODEL_PATH   = "mobilellama.onnx"
 
-TOKENIZER_PATH = "export_onnx/tokenizer.model"
-EMBED_PATH     = "export_onnx/embed_tokens.npy"
+TOKENIZER_PATH = "tokenizer.model"
+EMBED_PATH     = "embed_tokens.npy"
 
 PROVIDERS = ["CPUExecutionProvider"]
 
-QUESTION = "What objects are visible in the image in detail."
+QUESTION = "What objects are visible in the scene?"
 
 EOS_TOKEN_ID   = 2
 MAX_NEW_TOKENS = 40
 
 
 # =========================
-# 1. Image Loading & Preprocessing
-# =========================
-image = Image.open(IMG_PATH).convert("RGB")
-onnx_preprocessor_out = preprocess_batch([image])
-
-
-# =========================
-# 2. ONNX Session Initialization
+# 1. ONNX Session Initialization
 # =========================
 vision_sess = ort.InferenceSession(
     VISION_MODEL_PATH,
@@ -55,6 +50,14 @@ decoder_sess = ort.InferenceSession(
     providers=PROVIDERS
 )
 
+embedding_weight = np.load(EMBED_PATH)
+
+# =========================
+# 2. Image Loading & Preprocessing
+# =========================
+image = Image.open(IMG_PATH).convert("RGB")  # (640, 426)
+
+onnx_preprocessor_out = preprocess_batch([image])  # (1, 3, 336, 336)
 
 # =========================
 # 3. Vision Encoder Forward Pass
@@ -66,7 +69,6 @@ vision_out = vision_sess.run(
     },
 )[0]
 
-
 # =========================
 # 4. Projector Forward Pass
 # =========================
@@ -76,7 +78,6 @@ projector_out = projector_sess.run(
         "image_features": vision_out,
     },
 )[0]
-
 
 # =========================
 # 5. Tokenization
@@ -93,17 +94,12 @@ input_ids = np.expand_dims(input_ids, axis=0)
 # =========================
 # 6. Multimodal Embedding Preparation
 # =========================
-embedding_weight = np.load(EMBED_PATH)
 
-attention_mask = np.ones_like(input_ids)
-
-with torch.no_grad():
-    onnx_attention_mask, onnx_multimodal_input_embeds = \
-        prepare_inputs_labels_for_multimodal_onnx(
-            input_ids,
-            attention_mask,
-            image_features=projector_out
-        )
+output = build_multimodal_embeddings(
+    input_ids,
+    projector_out,
+)
+output = np.expand_dims(output, axis=0)  # [1,194,2048]
 
 
 # =========================
@@ -117,17 +113,18 @@ past_key_values = [
     for arr in (k, v)
 ]
 
-
 # =========================
 # 8. Autoregressive Decoding (LLM)
 # =========================
-cur_embed = onnx_multimodal_input_embeds.astype(np.float32)
-cur_len   = cur_embed.shape[1]
+cur_embed = output.astype(np.float32)  # (1, 194, 2048)
+cur_len   = cur_embed.shape[1]  # 194
 
 generated_tokens = []
 
 for step in range(MAX_NEW_TOKENS):
 
+    t0 = time.perf_counter()
+    
     # Update attention mask for current sequence length
     attention_mask = np.ones(
         (1, cur_len),
@@ -159,7 +156,7 @@ for step in range(MAX_NEW_TOKENS):
     )
 
     # Convert token to embedding
-    cur_embed = embedding_weight[next_token]
+    cur_embed = embedding_weight[next_token]  # (1, 1, 2048)
     generated_tokens.append(next_token)
 
     cur_len += 1
@@ -167,7 +164,6 @@ for step in range(MAX_NEW_TOKENS):
     # Stop if EOS token is generated
     if next_token.item() == EOS_TOKEN_ID:
         break
-
 
 # =========================
 # 9. Decode Generated Tokens

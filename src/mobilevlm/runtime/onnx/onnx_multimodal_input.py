@@ -1,97 +1,63 @@
 # onnx_multimodal_input.py
 
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 import numpy as np
-from mobilevlm_cpu.model.constants import IMAGE_TOKEN_INDEX
+from pytorch.model.constants import IMAGE_TOKEN_INDEX
 
-embedding_weight = np.load("export_onnx/embed_tokens.npy")  # (32000, 2048)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-def prepare_inputs_labels_for_multimodal_onnx(
-    input_ids,          # (B, L)
-    attention_mask,     # (B, L)
-    image_features,     # (B, N_img, D)
-):  
-    """
-    ONNX-only version of MobileVLM multimodal input builder.
+embed_path = os.path.join(BASE_DIR, "embed_tokens.npy")
 
-    Args:
-        input_ids: np.ndarray (B, L)
-        attention_mask: np.ndarray (B, L)
-        image_features: np.ndarray (B, N_img, D)
+embedding_weight = np.load(embed_path)  # (32000, 2048)
 
-    Returns:
-        new_inputs_embeds: (B, new_L, D)
-        new_attention_mask: (B, new_L)
-    """
-
+def build_multimodal_embeddings(
+    input_ids,         # (L,)
+    image_features,    # (N_img, 144, 2048)
+):
     B, _ = input_ids.shape
 
-    new_input_embeds = []
-    new_attention_masks = []
-
-    for batch_idx in range(B):
-        cur_input_ids = input_ids[batch_idx]                          # (53,)
-        cur_attention_mask = attention_mask[batch_idx]
-        cur_image_idx = 0
-
-        image_token_indices = np.where(cur_input_ids == IMAGE_TOKEN_INDEX)[0]  # [35]
-        
-        cur_new_input_embeds = []
-        cur_new_attn_mask = []
-
-        # Replace each <image> token with image features
-        while image_token_indices.size > 0:
-            image_token_start = image_token_indices[0]                 # 35
-            before_ids = cur_input_ids[:image_token_start]
-            cur_new_input_embeds.append(embedding_weight[before_ids])  # [[35, 2048]]
-            cur_new_attn_mask.append(np.ones(len(before_ids), dtype=cur_attention_mask.dtype))  # [[35]]
-
-            cur_image_features = image_features[cur_image_idx]        # [144, 2048]
-            cur_new_input_embeds.append(cur_image_features)           # [[35, 2048], [144, 2048]]
-            cur_new_attn_mask.append(np.ones(cur_image_features.shape[0], dtype=cur_attention_mask.dtype))    # [[35], [144]]
-            cur_image_idx += 1
-
-            cur_input_ids = cur_input_ids[image_token_start+1:]       # (17,)
-
-            # Update indices of remaining <image> tokens after slicing
-            image_token_indices = np.where(cur_input_ids == IMAGE_TOKEN_INDEX)[0]
-
-        after_ids = cur_input_ids
-        cur_new_input_embeds.append(embedding_weight[after_ids])  # [[35, 2048], [144, 2048], [17, 2048]]
-        cur_new_attn_mask.append(np.ones(len(after_ids), dtype=cur_attention_mask.dtype))
-
-        # Merge
-        cur_new_input_embeds = np.concatenate(cur_new_input_embeds, axis=0)  # (196, 2048)
-        cur_new_attn_mask = np.concatenate(cur_new_attn_mask, axis=0)        # (196,)
-
-        new_input_embeds.append(cur_new_input_embeds)
-        new_attention_masks.append(cur_new_attn_mask)
+    output_embeds = []
 
 
-    # ------------------------
-    # padding (VERY IMPORTANT)
-    # ------------------------
-    max_len = max(x.shape[0] for x in new_input_embeds)
+    current_input_ids = input_ids[0]
+    current_image_idx = 0
 
-    padded_embeds = []
-    padded_masks = []
+    while True:
 
-    for emb, mask in zip(new_input_embeds, new_attention_masks):
-        pad_len = max_len - emb.shape[0]
+        image_positions = np.where(
+            current_input_ids == IMAGE_TOKEN_INDEX
+        )[0]
 
-        if pad_len > 0:
-            emb = np.concatenate(
-                [emb, np.zeros((pad_len, D), dtype=emb.dtype)],
-                axis=0
-            )
-            mask = np.concatenate(
-                [mask, np.zeros(pad_len, dtype=mask.dtype)],
-                axis=0
-            )
+        if len(image_positions) == 0:
+            break
 
-        padded_embeds.append(emb)
-        padded_masks.append(mask)
+        image_start = image_positions[0]
 
-    new_input_embed = np.stack(padded_embeds, axis=0)   # (B, max_len, D)
-    new_attention_mask = np.stack(padded_masks, axis=0)  # (B, max_len)
+        # text before image token
+        before_ids = current_input_ids[:image_start]
 
-    return new_attention_mask, new_input_embed
+        if len(before_ids) > 0:
+            before_embeds = embedding_weight[before_ids]
+            output_embeds.append(before_embeds)
+
+        # image embeddings
+        current_image_embed = image_features[current_image_idx]
+        output_embeds.append(current_image_embed)
+
+        current_image_idx += 1
+
+        # remove used image token
+        current_input_ids = current_input_ids[image_start + 1:]
+
+        # remain text
+        if len(current_input_ids) > 0:
+            remain_embeds = embedding_weight[current_input_ids]
+            output_embeds.append(remain_embeds)
+
+        # concat all
+        output_embeds = np.concatenate(output_embeds, axis=0)
+
+    return output_embeds

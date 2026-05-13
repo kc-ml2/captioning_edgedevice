@@ -1,10 +1,11 @@
-import torch
-import onnx
-import onnxruntime as ort
-import numpy as np
+# export_vision_onnx.py
 
-from mobilevlm_cpu.model.mobilevlm import load_pretrained_model, build_prompt
-from mobilevlm_cpu.model.mutils import process_images, tokenizer_image_token, print_full_memory_report, to_int8_dynamic
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+
+import torch
+from pytorch.model.mobilevlm import load_pretrained_model
 
 
 device = torch.device("cpu")

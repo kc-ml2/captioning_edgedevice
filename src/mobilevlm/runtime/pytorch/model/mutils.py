@@ -1,8 +1,8 @@
 import torch
 import numpy as np
 from PIL import Image
-from model.vicuan_templete import conv_vicuna_v1
-from model.constants import IMAGE_TOKEN_INDEX
+from .vicuan_templete import conv_vicuna_v1
+from .constants import IMAGE_TOKEN_INDEX
 
 
 def expand2square(pil_img, background_color):
