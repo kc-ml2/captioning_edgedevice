@@ -108,7 +108,20 @@ You need macOS and Xcode to run the iOS application.
 First, export the Core ML model weights:
 
 ```bash
-python src/mobilevlm/runtime/export/export_coreml/export_*.py
+git clone https://github.com/kc-ml2/captioning_edgedevice
+cd captioning_edgedevice
+
+python3 -m venv venv
+source venv/bin/activate
+
+pip install --upgrade pip
+pip install -r requirements.txt
+
+python src/mobilevlm/runtime/export/export_coreml/export_vision_coreml.py
+python src/mobilevlm/runtime/export/export_coreml/export_projector_coreml.py
+python src/mobilevlm/runtime/export/export_coreml/export_embed_tokens_bin.py
+python src/mobilevlm/runtime/export/export_coreml/export_llm_coreml.py
+
 ```
 
 Then add the following resources to your Xcode project:
