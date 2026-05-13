@@ -112,6 +112,7 @@ First, export the Core ML model weights:
 python src/mobilevlm/runtime/export/export_coreml/export_vision_coreml.py
 python src/mobilevlm/runtime/export/export_coreml/export_projector_coreml.py
 python src/mobilevlm/runtime/export/export_coreml/export_embed_tokens_bin.py
+python src/mobilevlm/runtime/export/export_coreml/export_tokenizer.py
 python src/mobilevlm/runtime/export/export_coreml/export_llm_coreml.py
 ```
 
@@ -119,10 +120,14 @@ Second, open the iOS project in Xcode and add the following Swift Package depend
 - `swift-argument-parser` (1.7.1)
 - `swift-sentencepiece` (0.0.6)
 
+How to add the Swift Package:
+
+`File` > `Add Pacakge Dependencies` > Search `swift-sentencepiece`
+
 Third, add the following resources to your Xcode project:
 
 - `captioning_edgedevice/src/mobilevlm/runtime/iOS/`
-- Exported Core ML model weights: `VisionEncoder_32.mlpackage` , `Projector_32.mlpackage` , `embed_tokens.bin` , `mobilellama_32.mlpackage`
+- Exported Core ML model weights: `VisionEncoder_32.mlpackage` , `Projector_32.mlpackage` , `embed_tokens.bin` , `mobilellama_32.mlpackage` , `tokenizer.model`
 
 Finally, and run this project.
 
