@@ -13,6 +13,7 @@
 Lightweight on-device image captioning system based on MobileVLM, supporting PyTorch, ONNX, and iOS deployment.
 
 ## Overview
+
 This project implements an image captioning pipeline designed for deployment in resource-constrained environments.
 
 - Supports multiple models: BLIP, InstructBLIP, and MobileVLM v2
@@ -26,7 +27,9 @@ This project implements an image captioning pipeline designed for deployment in 
 - iOS deployment support
 - Edge-device optimization
 
-### PyTorch Model Weights
+## Model Weights
+
+### PyTorch
 
 The following pretrained models are used in this project:
 
@@ -34,7 +37,7 @@ The following pretrained models are used in this project:
 - InstructBLIP: "Salesforce/instructblip-flan-t5-xl"
 - MobileVLM: "mtgv/MobileVLM_V2-1.7B"
 
-### ONNX Model Weights
+### ONNX
 
 Due to their large size (~6GB), ONNX model weights are not included in this repository.
 
@@ -44,7 +47,7 @@ Instead, you can generate them locally using the provided export script:
 python src/mobilevlm/runtime/export/export_onnx/export_*.py
 ```
 
-### Core ML Model Weights
+### Core ML
 
 Due to their large size (~6GB), Core ML model weights are not included in this repository.
 
@@ -54,10 +57,9 @@ Instead, you can generate them locally using the provided export script:
 python src/mobilevlm/runtime/export/export_coreml/export_*.py
 ```
 
+## Running MobileVLM
 
-## Quick Start with MobileVLM 
-
-### PyTorch
+### Quick Start with PyTorch
 
 ```bash
 git clone https://github.com/kc-ml2/captioning_edgedevice
@@ -71,14 +73,14 @@ pip install -r requirements.txt
 python src/mobilevlm/runtime/pytorch/pytorch_mobilevlm.py
 ```
 
-### ONNX
+### ONNX Deployment
 
 ```bash
 python src/mobilevlm/runtime/export/export_onnx/export_*.py
 python src/mobilevlm/runtime/onnx/onnx_mobilevlm.py
 ```
 
-### Core ML / iOS
+### Core ML / iOS Deployment
 
 You need macOS and Xcode to run the iOS application.
 
@@ -132,13 +134,18 @@ Image captioning latency per image is measured over 500 randomly sampled images 
 | InstructBLIP | Hybrid (INT4 LLM) | 15 s         | 6.9 GiB    | 2.7 s             |
 | InstructBLIP | INT4              | 20 s         | 5.0 GiB    | 2.7 s             |
 
-### MobileVLM Comparison on CPU
+## MobileVLM CPU Runtime Breakdown
 
-| Runtime        | Preprocessing | Vision Encoder | Projector  | LLM (40 tkn)  | Total    |
-|----------------|---------------|----------------|------------|---------------|----------|
-| GPU            | -             | -              | -          | -             | 1.7 sec  |
-| CPU (Python)   | 0.04 sec      | 0.52 sec       | 0.01 sec   | 6.33 sec      | 6.90 sec |
-| CPU (ONNX)     | 0.03 sec      | 0.88 sec       | 0.02 sec   | 3.77 sec      | 4.70 sec |
+Latency breakdown for a single image inference.
+
+> The current Xcode/Core ML implementation is not fully optimized.
+
+| Runtime         | Preprocessing | Vision Encoder | Projector  | LLM (40 tkn)  | Total    |
+|-----------------|---------------|----------------|------------|---------------|----------|
+| GPU             | -             | -              | -          | -             | 1.7 sec  |
+| CPU (Python)    | 0.04 sec      | 0.52 sec       | 0.01 sec   | 6.33 sec      | 6.90 sec |
+| CPU (ONNX)      | 0.03 sec      | 0.88 sec       | 0.02 sec   | 3.77 sec      | 4.70 sec |
+| Xcode (Core ML) | 0.12 sec      | 1.27 sec       | 0.02 sec   | 6.10 sec      | 7.51 sec |
 
 
 ## Acknowledgement
