@@ -1,13 +1,13 @@
 # export_vision_coreml.py
 
 import sys, os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 import torch
 import coremltools as ct
 import numpy as np
 
-from model.mobilevlm import load_pretrained_model
+from pytorch.model.mobilevlm import load_pretrained_model
 
 device = torch.device("cpu")
 

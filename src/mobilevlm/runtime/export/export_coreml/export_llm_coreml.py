@@ -2,7 +2,7 @@
 
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 import torch
 import numpy as np
@@ -10,8 +10,8 @@ import coremltools as ct
 
 from PIL import Image
 
-from model.mobilevlm import load_pretrained_model
-from model.mutils import (
+from pytorch.model.mobilevlm import load_pretrained_model
+from pytorch.model.mutils import (
     process_images,
     build_prompt,
     tokenizer_image_token,
@@ -117,7 +117,7 @@ def main():
     # Build multimodal embed
     # =====================================================
 
-    img_path = "../000000000139.jpg"
+    img_path = "sample.jpg"
 
     image = Image.open(img_path).convert("RGB")
 
