@@ -1,7 +1,7 @@
 # Captioning Edge Device
 
 <p align="center">
-  <img src="assets/mobilevlm.gif" width="420"/>
+  <img src="assets/mobilevlm.gif" width="200"/>
 </p>
 
 Lightweight image captioning system optimized for edge devices, supporting multiple vision-language models with a focus on latency and memory efficiency.
