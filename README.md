@@ -1,20 +1,19 @@
-# Captioning Edge Device
+# On-Device Image Captioning
 
 <p align="center">
   <img src="assets/mobilevlm.gif" width="200"/>
 </p>
 
-Lightweight image captioning system optimized for edge devices, supporting multiple vision-language models with a focus on latency and memory efficiency.
+Lightweight on-device image captioning system based on MobileVLM, supporting inference with PyTorch, ONNX, and iOS environments.
 
 ## Overview
 This project implements an image captioning pipeline designed for deployment in resource-constrained environments.
 
-- Supports multiple models: BLIP, InstructBLIP (FLAN-T5), MobileVLM (v2-1.7B)
-- Supports FP16 and INT4 inference on GPU for BLIP and InstructBLIP
-- Supports FP32 PyTorch and ONNX inference Giton CPU for MobileVLM
+- Supports multiple models: BLIP, InstructBLIP (FLAN-T5), and MobileVLM v2
+- Supports PyTorch inference for all models
+- Supports ONNX and Core ML deployment for MobileVLM v2
 
-
-## PyTorch model weights
+### PyTorch model weights
 
 The following pretrained models are used in this project:
 
@@ -29,7 +28,17 @@ Due to their large size (~6GB), ONNX model weights are not included in this repo
 Instead, you can generate them locally using the provided export script:
 
 ```bash
-python src/mobilevlm/runtime/onnx/export_onnx/export_*.py
+python src/mobilevlm/runtime/export/export_onnx/export_*.py
+```
+
+## CoreML model Weights
+
+Due to their large size (~6GB), Core ML model weights are not included in this repository.
+
+Instead, you can generate them locally using the provided export script:
+
+```bash
+python src/mobilevlm/runtime/export/export_coreml/export_*.py
 ```
 
 
