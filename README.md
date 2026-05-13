@@ -108,6 +108,12 @@ You need macOS and Xcode to run the iOS application.
 
 First, export the Core ML model weights:
 
+Re-check for library version dependencies:
+
+```bash
+pip install torch==2.1.2 torchvision==0.16.2 transformers==4.46.3 tokenizers==0.20.3
+```
+
 ```bash
 python src/mobilevlm/runtime/export/export_coreml/export_vision_coreml.py
 python src/mobilevlm/runtime/export/export_coreml/export_projector_coreml.py
