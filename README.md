@@ -132,7 +132,7 @@ How to add the Swift Package:
 
 Third, add the following resources to your Xcode project:
 
-- `captioning_edgedevice/src/mobilevlm/runtime/iOS/`
+- `captioning_edgedevice/src/mobilevlm/runtime/iOS/mobilevlm/mobilevlm`
 - Exported Core ML model weights: `VisionEncoder_32.mlpackage` , `Projector_32.mlpackage` , `embed_tokens.bin` , `tokenizer.model` , `mobilellama_32.mlpackage`
 
 Finally, run this project.
