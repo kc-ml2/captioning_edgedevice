@@ -21,7 +21,7 @@ The following pretrained models are used in this project:
 - InstructBLIP: "Salesforce/instructblip-flan-t5-xl"
 - MobileVLM: "mtgv/MobileVLM_V2-1.7B"
 
-## ONNX model Weights
+### ONNX model Weights
 
 Due to their large size (~6GB), ONNX model weights are not included in this repository.
 
@@ -31,7 +31,7 @@ Instead, you can generate them locally using the provided export script:
 python src/mobilevlm/runtime/export/export_onnx/export_*.py
 ```
 
-## CoreML model Weights
+### CoreML model Weights
 
 Due to their large size (~6GB), Core ML model weights are not included in this repository.
 
