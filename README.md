@@ -58,7 +58,7 @@ python src/mobilevlm/runtime/export/export_coreml/export_*.py
 
 ## Running MobileVLM
 
-### Quick Start with PyTorch
+### Common Setup
 
 ```bash
 git clone https://github.com/kc-ml2/captioning_edgedevice
@@ -69,37 +69,38 @@ source venv/bin/activate
 
 pip install --upgrade pip
 pip install -r requirements.txt
+```
+
+### Quick Start with PyTorch
+
+```bash
 python src/mobilevlm/runtime/pytorch/pytorch_mobilevlm.py
 ```
 
 ### ONNX Deployment
 
+Change version for dependencies:
 ```bash
-git clone https://github.com/kc-ml2/captioning_edgedevice
-cd captioning_edgedevice
+pip install torch==2.0.1 torchvision==0.15.2 transformers==4.33.1 tokenizers==0.13.3 
+```
 
-python3 -m venv venv
-source venv/bin/activate
-
-pip install --upgrade pip
-pip install -r requirements.txt
-
+Export ONNX weights:
+```bash
 python src/mobilevlm/runtime/export/export_onnx/export_vision_onnx.py
 python src/mobilevlm/runtime/export/export_onnx/export_projector_onnx.py
 python src/mobilevlm/runtime/export/export_onnx/export_tokenizer.py
 python src/mobilevlm/runtime/export/export_onnx/export_embed_tokens_np.py
 python src/mobilevlm/runtime/export/export_onnx/export_llm_onnx.py
-
-python src/mobilevlm/runtime/onnx/onnx_mobilevlm.py
 ```
 
-We need only these weights:
-- mm_projector.onnx 
-- mobilellama.onnx 
-- mobilellama.weights.bin 
-- vision_tower.onnx 
-- embed_tokens.npy 
-- tokenizer.model
+We need only these weights related ONNX: 
+
+'mm_projector.onnx' , 'mobilellama.onnx' , 'mobilellama.weights.bin' , 'vision_tower.onnx' , 'embed_tokens.npy' , 'tokenizer.model'
+
+Run inference:
+```bash
+python src/mobilevlm/runtime/onnx/onnx_mobilevlm.py
+```
 
 ### Core ML / iOS Deployment
 
@@ -108,23 +109,17 @@ You need macOS and Xcode to run the iOS application.
 First, export the Core ML model weights:
 
 ```bash
-git clone https://github.com/kc-ml2/captioning_edgedevice
-cd captioning_edgedevice
-
-python3 -m venv venv
-source venv/bin/activate
-
-pip install --upgrade pip
-pip install -r requirements.txt
-
 python src/mobilevlm/runtime/export/export_coreml/export_vision_coreml.py
 python src/mobilevlm/runtime/export/export_coreml/export_projector_coreml.py
 python src/mobilevlm/runtime/export/export_coreml/export_embed_tokens_bin.py
 python src/mobilevlm/runtime/export/export_coreml/export_llm_coreml.py
-
 ```
 
-Then add the following resources to your Xcode project:
+Second, open the iOS project in Xcode and add the following Swift Package dependencies:
+- 'swift-argument-parser' (1.7.1)
+- 'swift-sentencepiece' (0.0.6)
+
+Third, add the following resources to your Xcode project:
 
 - `captioning_edgedevice/src/mobilevlm/runtime/iOS/`
 - Exported Core ML model weights
