@@ -5,9 +5,9 @@ try:
     from transformers import BitsAndBytesConfig
 except Exception:
     BitsAndBytesConfig = None
-from model.vision_encoder import build_vision_tower
-from model.vision_projector import build_vision_projector
-from model.constants import IGNORE_INDEX, IMAGE_TOKEN_INDEX, \
+from .vision_encoder import build_vision_tower
+from .vision_projector import build_vision_projector
+from .constants import IGNORE_INDEX, IMAGE_TOKEN_INDEX, \
     DEFAULT_IMAGE_PATCH_TOKEN, DEFAULT_IM_START_TOKEN, DEFAULT_IM_END_TOKEN
 
 
@@ -341,7 +341,7 @@ def load_pretrained_model(model_path, load_8bit=False, load_4bit=False, device_m
         kwargs['torch_dtype'] = torch.float32 if is_cpu else torch.float16
     
     from transformers import LlamaTokenizer
-    from model.mobilellama import MobileLlamaForCausalLM
+    from .mobilellama import MobileLlamaForCausalLM
 
     tokenizer = LlamaTokenizer.from_pretrained(model_path, use_fast=False)
     model = MobileLlamaForCausalLM.from_pretrained(model_path, low_cpu_mem_usage=True, **kwargs)

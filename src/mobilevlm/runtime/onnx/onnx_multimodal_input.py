@@ -1,15 +1,10 @@
 # onnx_multimodal_input.py
 
-import sys
-import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
 import numpy as np
-from pytorch.model.constants import IMAGE_TOKEN_INDEX
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+IMAGE_TOKEN_INDEX = -200
 
-embed_path = os.path.join(BASE_DIR, "embed_tokens.npy")
+embed_path = "embed_tokens.npy"
 
 embedding_weight = np.load(embed_path)  # (32000, 2048)
 

@@ -75,9 +75,31 @@ python src/mobilevlm/runtime/pytorch/pytorch_mobilevlm.py
 ### ONNX Deployment
 
 ```bash
-python src/mobilevlm/runtime/export/export_onnx/export_*.py
+git clone https://github.com/kc-ml2/captioning_edgedevice
+cd captioning_edgedevice
+
+python3 -m venv venv
+source venv/bin/activate
+
+pip install --upgrade pip
+pip install -r requirements.txt
+
+python src/mobilevlm/runtime/export/export_onnx/export_vision_onnx.py
+python src/mobilevlm/runtime/export/export_onnx/export_projector_onnx.py
+python src/mobilevlm/runtime/export/export_onnx/export_tokenizer.py
+python src/mobilevlm/runtime/export/export_onnx/export_embed_tokens_np.py
+python src/mobilevlm/runtime/export/export_onnx/export_llm_onnx.py
+
 python src/mobilevlm/runtime/onnx/onnx_mobilevlm.py
 ```
+
+We need only these weights:
+- mm_projector.onnx 
+- mobilellama.onnx 
+- mobilellama.weights.bin 
+- vision_tower.onnx 
+- embed_tokens.npy 
+- tokenizer.model
 
 ### Core ML / iOS Deployment
 
