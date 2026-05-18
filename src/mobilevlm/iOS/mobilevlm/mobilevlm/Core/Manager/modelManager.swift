@@ -9,8 +9,8 @@ final class ModelManager {
     // CoreML Models
     // =========================
 
-    let visionModel: VisionEncoder_cp16
-    let projectorModel: Projector_cp16
+    let visionModel: VisionEncoder_int8
+    let projectorModel: Projector_int8
     let llmModel: mobilellama_n8
 
     // =========================
@@ -23,7 +23,7 @@ final class ModelManager {
     // Embedding Weights
     // =========================
 
-    let embeddingWeights: [Float32]
+    let embeddingWeights: [Int8]
 
     // =========================
     // Init
@@ -40,7 +40,7 @@ final class ModelManager {
             // Vision
             // =====================
 
-            visionModel = try VisionEncoder_cp16(
+            visionModel = try VisionEncoder_int8(
                 configuration: config
             )
 
@@ -48,7 +48,7 @@ final class ModelManager {
             // Projector
             // =====================
 
-            projectorModel = try Projector_cp16(
+            projectorModel = try Projector_int8(
                 configuration: config
             )
 
@@ -87,7 +87,7 @@ final class ModelManager {
 
             guard let embedURL =
                 Bundle.main.url(
-                    forResource: "embed_tokens_cp32",
+                    forResource: "embed_tokens_int8",
                     withExtension: "bin"
                 )
             else {
@@ -105,7 +105,7 @@ final class ModelManager {
 
                     let buffer =
                         $0.bindMemory(
-                            to: Float32.self
+                            to: Int8.self
                         )
 
                     return Array(buffer)

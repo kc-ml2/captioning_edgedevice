@@ -11,6 +11,9 @@ func updateNextTokenEmbedding(
     let embeddingWeights =
         ModelManager.shared.embeddingWeights
 
+    let embeddingScale: Float32 =
+        0.0029681348
+
     let embedPtr = embedBuffer.dataPointer.bindMemory(
         to: Float32.self,
         capacity: embedBuffer.count
@@ -21,6 +24,8 @@ func updateNextTokenEmbedding(
     for i in 0..<hiddenDim {
 
         embedPtr[i] =
-            embeddingWeights[startIndex + i]
+            Float32(
+                embeddingWeights[startIndex + i]
+            ) * embeddingScale
     }
 }

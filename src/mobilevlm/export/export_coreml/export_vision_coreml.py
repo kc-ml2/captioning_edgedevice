@@ -1,7 +1,7 @@
 # export_vision_coreml.py
 
 import sys, os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import torch
 import coremltools as ct
@@ -13,7 +13,8 @@ MODEL_PATH = "mtgv/MobileVLM_V2-1.7B"
 
 device = "cpu"
 
-USE_FP16 = True
+USE_FP16 = False
+USE_INT8 = True
 
 # Load model
 _, model, _, _ = load_pretrained_model(
@@ -41,9 +42,9 @@ print("PyTorch output shape:", torch_out.shape)
 traced_model = torch.jit.trace(vision_tower, dummy_input)
 
 # -------------------------
-# Precision Option
+# Compute Precision Setting
 # -------------------------
-if USE_FP16:
+if USE_FP16 and not USE_INT8:
     compute_precision = ct.precision.FLOAT16
     save_path = "VisionEncoder_fp16.mlpackage"
 else:
@@ -74,8 +75,33 @@ mlmodel = ct.convert(
 )
 
 # -------------------------
+# INT8 Quantization
+# -------------------------
+if USE_INT8:
+
+    from coremltools.optimize.coreml import (
+        linear_quantize_weights,
+        OptimizationConfig,
+        OpLinearQuantizerConfig
+    )
+
+    config = OptimizationConfig(
+        global_config=OpLinearQuantizerConfig(
+            mode="linear_symmetric",
+            dtype=np.int8
+        )
+    )
+
+    mlmodel = linear_quantize_weights(
+        mlmodel,
+        config=config
+    )
+
+    save_path = "VisionEncoder_int8.mlpackage"
+
+# -------------------------
 # Save
 # -------------------------
 mlmodel.save(save_path)
 
-print("CoreML export done")
+print(f"CoreML export done: {save_path}")

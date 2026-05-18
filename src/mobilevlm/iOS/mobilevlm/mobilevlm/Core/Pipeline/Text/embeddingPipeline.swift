@@ -21,7 +21,7 @@ func buildInputEmbeddings(
     // shared embedding weights
     // =========================
 
-    let embeddingWeights: [Float32] =
+    let embeddingWeights: [Int8] =
         ModelManager.shared.embeddingWeights
 
     // =========================

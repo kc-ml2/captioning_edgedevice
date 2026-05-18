@@ -9,7 +9,7 @@ func runVisionTower(
         let model =
             ModelManager.shared.visionModel
 
-        let input = VisionEncoder_cp16Input(
+        let input = VisionEncoder_int8Input(
             pixel_values: mlInput
         )
 

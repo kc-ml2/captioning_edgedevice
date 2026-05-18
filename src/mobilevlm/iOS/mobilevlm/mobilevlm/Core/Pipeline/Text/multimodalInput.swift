@@ -4,13 +4,15 @@ import CoreML
 func buildMultimodalEmbeddings(
     inputIds: [Int],
     imageFeatures: MLMultiArray,
-    embeddingWeights: [Float32]
+    embeddingWeights: [Int8]
 ) -> MLMultiArray? {
 
     let hiddenSize = 2048
     let imageTokenIndex = -200
-
+    let embeddingScale: Float32 = 0.0029681348
+    
     let imageSeqLen: Int
+    
 
     if imageFeatures.shape.count == 3 {
 
@@ -106,7 +108,9 @@ func buildMultimodalEmbeddings(
             for j in 0..<hiddenSize {
 
                 outputPtr[outputOffset + j] =
-                    embeddingWeights[embedOffset + j]
+                    Float32(
+                        embeddingWeights[embedOffset + j]
+                    ) * embeddingScale
             }
 
             outRow += 1

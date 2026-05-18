@@ -1,7 +1,7 @@
 # export_projector_coreml.py
 
 import sys, os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import torch
 import coremltools as ct
@@ -13,7 +13,8 @@ MODEL_PATH = "mtgv/MobileVLM_V2-1.7B"
 
 DEVICE = "cpu"
 
-USE_FP16 = True
+USE_FP16 = False
+USE_INT8 = True
 
 # -------------------------
 # 1. load model
@@ -57,9 +58,9 @@ print("PyTorch output shape:", torch_out.shape)
 traced_model = torch.jit.trace(projector, dummy_input)
 
 # -------------------------
-# 6. Precision Option
+# Compute Precision Setting
 # -------------------------
-if USE_FP16:
+if USE_FP16 and not USE_INT8:
     compute_precision = ct.precision.FLOAT16
     save_path = "Projector_fp16.mlpackage"
 else:
@@ -67,7 +68,7 @@ else:
     save_path = "Projector_fp32.mlpackage"
 
 # -------------------------
-# 7. CoreML Convert
+# CoreML Convert
 # -------------------------
 mlmodel = ct.convert(
     traced_model,
@@ -90,8 +91,33 @@ mlmodel = ct.convert(
 )
 
 # -------------------------
-# 8. Save
+# INT8 Quantization
+# -------------------------
+if USE_INT8:
+
+    from coremltools.optimize.coreml import (
+        linear_quantize_weights,
+        OptimizationConfig,
+        OpLinearQuantizerConfig
+    )
+
+    config = OptimizationConfig(
+        global_config=OpLinearQuantizerConfig(
+            mode="linear_symmetric",
+            dtype=np.int8
+        )
+    )
+
+    mlmodel = linear_quantize_weights(
+        mlmodel,
+        config=config
+    )
+
+    save_path = "Projector_int8.mlpackage"
+
+# -------------------------
+# Save
 # -------------------------
 mlmodel.save(save_path)
 
-print("CoreML export done")
+print(f"CoreML export done: {save_path}")
