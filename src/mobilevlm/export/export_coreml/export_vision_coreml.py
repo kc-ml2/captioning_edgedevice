@@ -14,7 +14,13 @@ MODEL_PATH = "mtgv/MobileVLM_V2-1.7B"
 device = "cpu"
 
 USE_FP16 = False
-USE_INT8 = True
+
+USE_INT8 = False
+USE_INT4 = True
+
+assert not (
+    USE_INT8 and USE_INT4
+), "Only one quantization mode can be enabled."
 
 # Load model
 _, model, _, _ = load_pretrained_model(
@@ -44,11 +50,29 @@ traced_model = torch.jit.trace(vision_tower, dummy_input)
 # -------------------------
 # Compute Precision Setting
 # -------------------------
-if USE_FP16 and not USE_INT8:
+if USE_INT8 or USE_INT4:
+    compute_precision = ct.precision.FLOAT32
+
+elif USE_FP16:
     compute_precision = ct.precision.FLOAT16
-    save_path = "VisionEncoder_fp16.mlpackage"
+
 else:
     compute_precision = ct.precision.FLOAT32
+
+# =========================
+# Save path
+# =========================
+
+if USE_INT8:
+    save_path = "VisionEncoder_int8.mlpackage"
+
+elif USE_INT4:
+    save_path = "VisionEncoder_int4.mlpackage"
+
+elif USE_FP16:
+    save_path = "VisionEncoder_fp16.mlpackage"
+
+else:
     save_path = "VisionEncoder_fp32.mlpackage"
 
 # -------------------------
@@ -97,8 +121,29 @@ if USE_INT8:
         config=config
     )
 
-    save_path = "VisionEncoder_int8.mlpackage"
+# =========================
+# INT4 Palettization
+# =========================
 
+elif USE_INT4:
+
+    from coremltools.optimize.coreml import (
+        palettize_weights,
+        OptimizationConfig,
+        OpPalettizerConfig
+    )
+
+    config = OptimizationConfig(
+        global_config=OpPalettizerConfig(
+            mode="kmeans",
+            nbits=4
+        )
+    )
+
+    mlmodel = palettize_weights(
+        mlmodel,
+        config=config
+    )
 # -------------------------
 # Save
 # -------------------------

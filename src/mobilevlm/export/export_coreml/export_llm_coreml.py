@@ -2,7 +2,7 @@
 
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import torch
 import numpy as np
@@ -25,7 +25,7 @@ HIDDEN_SIZE = 2048
 VOCAB_SIZE = 32000
 
 DEVICE = "cpu"
-USE_INT8_COMPRESSION = False
+USE_INT8_COMPRESSION = True
 
 # =========================================================
 # Decoder Wrapper
@@ -76,7 +76,9 @@ class DecoderWrapper(torch.nn.Module):
         hidden_states = outputs[0]
         present_kv = outputs[1]
 
-        logits = self.lm_head(hidden_states)
+        last_hidden = hidden_states[:, -1:, :]
+
+        logits = self.lm_head(last_hidden)
         logits = logits[..., :VOCAB_SIZE]
 
         # -----------------------------------------
@@ -187,12 +189,10 @@ def main():
     # CoreML input specs
     # =====================================================
 
-
     seq_dim = ct.RangeDim(
         lower_bound=1,
         upper_bound=MAX_SEQ_LEN,
     )
-
 
     inputs = []
 
@@ -340,8 +340,7 @@ def main():
     final_model.save(SAVE_PATH)
 
     print("========================================")
-    print("CoreML export complete")
-    print(SAVE_PATH)
+    print(f"CoreML export complete: {SAVE_PATH}")
     print("========================================")
 
 
