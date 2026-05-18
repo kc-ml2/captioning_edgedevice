@@ -74,7 +74,7 @@ pip install -r requirements.txt
 ### Quick Start with PyTorch
 
 ```bash
-python src/mobilevlm/runtime/pytorch/pytorch_mobilevlm.py
+python src/mobilevlm/pytorch/pytorch_mobilevlm.py
 ```
 
 ### ONNX Deployment
@@ -86,11 +86,11 @@ pip install torch==2.0.1 torchvision==0.15.2 transformers==4.33.1 tokenizers==0.
 
 Export ONNX weights:
 ```bash
-python src/mobilevlm/runtime/export/export_onnx/export_vision_onnx.py
-python src/mobilevlm/runtime/export/export_onnx/export_projector_onnx.py
-python src/mobilevlm/runtime/export/export_onnx/export_tokenizer.py
-python src/mobilevlm/runtime/export/export_onnx/export_embed_tokens_np.py
-python src/mobilevlm/runtime/export/export_onnx/export_llm_onnx.py
+python src/mobilevlm/export/export_onnx/export_vision_onnx.py
+python src/mobilevlm/export/export_onnx/export_projector_onnx.py
+python src/mobilevlm/export/export_onnx/export_tokenizer.py
+python src/mobilevlm/export/export_onnx/export_embed_tokens_np.py
+python src/mobilevlm/export/export_onnx/export_llm_onnx.py
 ```
 
 We need only these weights related ONNX: 
@@ -99,7 +99,7 @@ We need only these weights related ONNX:
 
 Run inference:
 ```bash
-python src/mobilevlm/runtime/onnx/onnx_mobilevlm.py
+python src/mobilevlm/onnx/onnx_mobilevlm.py
 ```
 
 ### Core ML / iOS Deployment
@@ -115,11 +115,11 @@ pip install torch==2.1.2 torchvision==0.16.2 transformers==4.46.3 tokenizers==0.
 ```
 
 ```bash
-python src/mobilevlm/runtime/export/export_coreml/export_vision_coreml.py
-python src/mobilevlm/runtime/export/export_coreml/export_projector_coreml.py
-python src/mobilevlm/runtime/export/export_coreml/export_embed_tokens_bin.py
-python src/mobilevlm/runtime/export/export_coreml/export_tokenizer.py
-python src/mobilevlm/runtime/export/export_coreml/export_llm_coreml.py
+python src/mobilevlm/export/export_coreml/export_vision_coreml.py
+python src/mobilevlm/export/export_coreml/export_projector_coreml.py
+python src/mobilevlm/export/export_coreml/export_embed_tokens_bin.py
+python src/mobilevlm/export/export_coreml/export_tokenizer.py
+python src/mobilevlm/export/export_coreml/export_llm_coreml.py
 ```
 
 Second, open the iOS project in Xcode and add the following Swift Package dependencies:
@@ -132,7 +132,7 @@ How to add the Swift Package:
 
 Third, add the following resources to your Xcode project:
 
-- `captioning_edgedevice/src/mobilevlm/runtime/iOS/mobilevlm/mobilevlm`
+- `captioning_edgedevice/src/mobilevlm/iOS/mobilevlm/mobilevlm`
 - Exported Core ML model weights: `VisionEncoder_32.mlpackage` , `Projector_32.mlpackage` , `embed_tokens.bin` , `tokenizer.model` , `mobilellama_32.mlpackage`
 
 Finally, run this project.
