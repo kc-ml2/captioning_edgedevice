@@ -60,6 +60,8 @@ python src/mobilevlm/export/export_coreml/export_*.py
 
 https://github.com/kc-ml2/captioning_edgedevice/blob/main/document/how_to_export.md
 
+
+
 ## Result
 
 ### Input 
