@@ -11,7 +11,7 @@ final class ModelManager {
 
     let visionModel: VisionEncoder_int8
     let projectorModel: Projector_int8
-    let llmModel: mobilellama_n8
+    let llmModel: mobilellama_int8
 
     // =========================
     // Tokenizer
@@ -56,7 +56,7 @@ final class ModelManager {
             // LLM
             // =====================
 
-            llmModel = try mobilellama_n8(
+            llmModel = try mobilellama_int8(
                 configuration: config
             )
 

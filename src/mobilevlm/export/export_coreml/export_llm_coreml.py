@@ -2,13 +2,13 @@
 
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 import torch
 import numpy as np
 import coremltools as ct
 
-from model.mobilevlm import load_pretrained_model
+from pytorch.model.mobilevlm import load_pretrained_model
 
 
 # =========================================================

@@ -1,13 +1,13 @@
 # export_projector_coreml.py
 
 import sys, os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 import torch
 import coremltools as ct
 import numpy as np
 
-from model.mobilevlm import load_pretrained_model
+from pytorch.model.mobilevlm import load_pretrained_model
 
 MODEL_PATH = "mtgv/MobileVLM_V2-1.7B"
 
@@ -15,8 +15,8 @@ DEVICE = "cpu"
 
 USE_FP16 = False
 
-USE_INT8 = False
-USE_INT4 = True
+USE_INT8 = True
+USE_INT4 = False
 
 assert not (
     USE_INT8 and USE_INT4

@@ -43,7 +43,7 @@ Due to their large size (~6GB), ONNX model weights are not included in this repo
 Instead, you can generate them locally using the provided export script:
 
 ```bash
-python src/mobilevlm/runtime/export/export_onnx/export_*.py
+python src/mobilevlm/export/export_onnx/export_*.py
 ```
 
 ### Core ML
@@ -53,7 +53,7 @@ Due to their large size (~6GB), Core ML model weights are not included in this r
 Instead, you can generate them locally using the provided export script:
 
 ```bash
-python src/mobilevlm/runtime/export/export_coreml/export_*.py
+python src/mobilevlm/export/export_coreml/export_*.py
 ```
 
 ## Running MobileVLM
