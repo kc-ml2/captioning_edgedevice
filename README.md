@@ -58,7 +58,7 @@ python src/mobilevlm/export/export_coreml/export_*.py
 
 ## Running MobileVLM
 
-https://github.com/kc-ml2/captioning_edgedevice/blob/main/document/how_to_export.md
+https://github.com/kc-ml2/captioning_edgedevice/blob/main/document/how_to_run.md
 
 
 
