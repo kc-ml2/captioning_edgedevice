@@ -15,6 +15,8 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
+Note: Python versions lower than 3.12 are recommended.
+
 ### Quick Start with PyTorch
 
 ```bash
