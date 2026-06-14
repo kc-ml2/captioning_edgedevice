@@ -1,12 +1,7 @@
-# export_token_embed_np.py
+# export_embed_tokens_np.py
 
-import sys
-import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
-
+from model.mobilevlm import load_pretrained_model
 import numpy as np
-from pytorch.model.mobilevlm import load_pretrained_model
-
 
 # HF model id or local path
 MODEL_PATH = "mtgv/MobileVLM_V2-1.7B"

@@ -5,7 +5,7 @@ import torch.nn as nn
 from torch.nn import CrossEntropyLoss
 from transformers import AutoConfig, AutoModelForCausalLM, LlamaConfig, LlamaModel, LlamaForCausalLM
 from transformers.modeling_outputs import CausalLMOutputWithPast
-from .mobilevlm import MobileVLMMetaModel, MobileVLMMetaForCausalLM
+from model.mobilevlm import MobileVLMMetaModel, MobileVLMMetaForCausalLM
 
 
 # Reuse the LLaMA architecture settings for MobileVLM.

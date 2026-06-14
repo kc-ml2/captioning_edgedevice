@@ -6,7 +6,7 @@ import re, torch
 from PIL import Image
 
 from model.mobilevlm import load_pretrained_model
-from model.mutils import process_images, build_prompt, tokenizer_image_token, torch_empty_kv
+from model.mutils import process_images, build_prompt, tokenizer_image_token, pytorch_zero_kv
 
 
 # ---- Default values ---- #
@@ -25,9 +25,8 @@ tokenizer, model, image_processor, context_len = load_pretrained_model(
 )
 model.eval()  # MobileLlamaForCausalLM
 
-
 # ---- inference ----
-img_path = "sample.jpg"
+img_path = "000000000139.jpg"
 image = Image.open(img_path).convert("RGB")  # (426, 640, 3)
 
 
@@ -93,7 +92,7 @@ max_new_tokens = GEN_KWARGS_DEFAULT["max_new_tokens"]
 generated_tokens = []
 
 cur_embed = torch_multimodals_inputs_embeds.to(torch.float32)
-torch_kv = torch_empty_kv(model, batch_size=1, device="cpu")  # [24, 2, 1, 16, 0]
+torch_kv = pytorch_zero_kv(seq_len=1, device="cpu")  # [24, 2, 1, 16, 1, 128]
 
 cur_len = cur_embed.shape[-2]
 
@@ -102,7 +101,7 @@ cur_len = cur_embed.shape[-2]
 for step in range(max_new_tokens):
 
     attention_mask = torch.ones(
-        (1, cur_len),
+        (1, cur_len+1),
         dtype=torch.long,
         device=cur_embed.device
     )
@@ -131,26 +130,7 @@ for step in range(max_new_tokens):
 
 
 generated_tokens = torch.cat(generated_tokens, dim=1)  # [1, T]
-# pt_tokens = generated_tokens.squeeze().cpu().numpy()  # [T]
-# np.save("comparison/pytorch_generated_tokens.npy", pt_tokens)
 
 text = tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
 caption = re.sub(r"\s+", " ", text[0]).strip()
 print(f"caption: {caption}")
-
-'''
-# ----- original inference code -----
-with torch.inference_mode():
-    out_ids = model.generate(             # shape: [1,93]
-        input_ids,                        # Text prompt token: [1, 319, ... , -200, ... , 29901]
-        images=image_tensor,              # Use original PyTorch model
-        # image_features=image_features,
-        **GEN_KWARGS_DEFAULT,
-    )
-
-gen_ids = out_ids[0][input_ids.shape[1] :]  # [512, 278, 1967, 29892, ...]
-# text = tokenizer.batch_decode(gen_ids.unsqueeze(0), skip_special_tokens=True)[0]
-# caption = re.sub(r"\s+", " ", text).strip()
-
-# print(f"caption: {caption}")
-'''

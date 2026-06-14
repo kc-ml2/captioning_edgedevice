@@ -1,7 +1,6 @@
 from typing import List, Optional, Tuple, Union
 
 import torch
-import torch.nn as nn
 
 from transformers import (
     AutoConfig,

@@ -7,7 +7,7 @@ import torch.nn as nn
 
 from PIL import Image
 
-from pytorch_utils import process_images, build_multimodal_embeddings, tokenize_image_question, pytorch_empty_kv
+from pytorch_utils import process_images, build_multimodal_embeddings, tokenize_image_question, pytorch_zero_kv
 
 # --------------------------------------------------
 # Global configuration
@@ -26,9 +26,6 @@ total_start_time = time.perf_counter()
 # --------------------------------------------------
 
 t0 = time.perf_counter()
-
-from pytorch_mobilellama import MobileLlamaModel
-from pytorch_mm_projector import LDPNetV2Projector
 
 from transformers import (
     LlamaTokenizer,
@@ -53,6 +50,8 @@ vision_encoder = CLIPVisionModel.from_pretrained(
 ).eval()
 
 # ---- MM projector ----
+from pytorch_mm_projector import LDPNetV2Projector
+
 mm_projector = LDPNetV2Projector().eval()
 
 mm_projector.load_state_dict(
@@ -63,27 +62,17 @@ mm_projector.load_state_dict(
 )
 
 # ---- MobileLlama backbone ----
+from pytorch_mobilellama import MobileLlamaModel
+
 mobilellama = MobileLlamaModel.from_pretrained(
     MODEL_PATH,
     low_cpu_mem_usage=True,
     torch_dtype=torch.float32,
 ).eval()
 
+
 # ---- Token embedding ----
-token_embedding = nn.Embedding(
-    num_embeddings=32000,
-    embedding_dim=2048,
-    padding_idx=0,
-)
-
-token_embedding.load_state_dict(
-    torch.load(
-        "embed_tokens.pth",
-        map_location="cpu",
-    )
-)
-
-token_embedding.eval()
+token_embedding = mobilellama.embed_tokens
 
 # ---- LM head ----
 lm_head = nn.Linear(
@@ -154,8 +143,6 @@ input_ids = tokenize_image_question(
     tokenizer=tokenizer
 )
 
-attention_mask = torch.ones_like(input_ids)
-
 with torch.inference_mode():
 
     multimodal_inputs_embeds = build_multimodal_embeddings(
@@ -168,44 +155,115 @@ t1 = time.perf_counter()
 
 print(f"[TIME] Multimodal prepare: {t1 - t0:.4f} sec")
 
-# ---- LLM prefill + decoder ----
+# ---- LLM prefill ----
 eos_token_id = 2
 max_new_tokens = 40
 generated_tokens = []
 
 cur_embed = multimodal_inputs_embeds.to(torch.float32)  # [1, 194, 2048]
-torch_kv = pytorch_empty_kv()   # [24, 2, 1, 16, 1, 128]
+torch_kv = pytorch_zero_kv(seq_len=2)   # [24, 2, 1, 16, 2, 128]
 
 cur_len = cur_embed.shape[-2]  # 194
 
-total_llm_time = 0.0
+attention_mask = torch.ones(
+    (1, cur_len + 2),
+    dtype=torch.long,
+    device="cpu"
+)
+attention_mask[:, :2] = 0
 
 
-# ---- autoregressive decoding ----
+with torch.no_grad():
+        outputs = mobilellama(              # MobileLlamaModel
+            inputs_embeds=cur_embed,        # [1,194,2048]
+            attention_mask=attention_mask,  # [1,196]
+            past_key_values=torch_kv,       # [24,2,1,16,2,128]
+            use_cache=True,
+            return_dict=True,  # Key: ['last_hidden_state', 'past_key_values']
+        )
+pt_next_logit = lm_head(outputs.last_hidden_state[:, -1, :])  # [1, 32000]
+cur_token = torch.argmax(pt_next_logit, dim=-1, keepdim=True)
+
+
+cur_embed = token_embedding(cur_token)  # tensor.Size([1, 1, 2048])
+generated_tokens.append(cur_token)      # 512, 278, ...
+
+torch_kv = outputs.past_key_values  # [24,2,1,16,196,128]
+
+cur_len += 2  # 196
+
+print(cur_token)
+
+
+total_llm_time = 0
+# ---- LLM decoder ----
 for step in range(max_new_tokens):
 
     t0 = time.perf_counter()
 
-    attention_mask = torch.ones(
-        (1, cur_len+1),
+    max_embedding_input = torch.zeros(
+        (1, 2, 2048),
+        dtype=torch.float32,
+        device="cpu"
+    )
+    max_embedding_input[:, 1:2, :] = cur_embed
+
+    max_attention_mask = torch.zeros(
+        (1, 238),
         dtype=torch.long,
         device="cpu"
     )
 
+    max_attention_mask[:, 2:cur_len] = 1
+    max_attention_mask[:, -1] = 1
+
+    max_torch_kv = pytorch_zero_kv(seq_len=236)   # [24, 2, 1, 16, 235, 128]
+
+    for (static_k, static_v), (new_k, new_v) in zip(
+        max_torch_kv,
+        torch_kv,
+    ):
+        static_k[:, :, :cur_len, :].copy_(new_k)
+        static_v[:, :, :cur_len, :].copy_(new_v)
+    
     with torch.no_grad():
         outputs = mobilellama(    # MobileLlamaModel
-            inputs_embeds=cur_embed,
-            attention_mask=attention_mask,
-            past_key_values=torch_kv,
+            inputs_embeds=max_embedding_input,
+            attention_mask=max_attention_mask,
+            past_key_values=max_torch_kv,
             use_cache=True,
             return_dict=True,     # Key: ['last_hidden_state', 'past_key_values']
         )
 
     pt_next_logit = lm_head(outputs.last_hidden_state)[:, -1, :]  # [1, 32000]
-    torch_kv = outputs.past_key_values  # [24,2,1,16,194+a,128]
 
+    torch_kv = tuple(
+        (
+            torch.cat(
+                [
+                    k[:, :, :cur_len, :],
+                    k[:, :, -1:, :]
+                ],
+                dim=2
+            ),
+            torch.cat(
+                [
+                    v[:, :, :cur_len, :],
+                    v[:, :, -1:, :]
+                ],
+                dim=2
+            )
+        )
+        for k, v in outputs.past_key_values
+    )
 
-    cur_token = torch.argmax(pt_next_logit, dim=-1, keepdim=True)
+    cur_token = torch.argmax(
+        pt_next_logit,
+        dim=-1,
+        keepdim=True
+    )
+
+    print(f"cur_token: {cur_token}")
 
     cur_embed = token_embedding(cur_token)  # tensor.Size([1, 1, 2048])
     generated_tokens.append(cur_token)      # 512, 278, ...

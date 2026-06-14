@@ -1,13 +1,10 @@
-# export_projector_onnx.py
-
-import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
 import torch
 import onnx
 
-from pytorch.model.mobilevlm import load_pretrained_model
+from model.mobilevlm import load_pretrained_model
 
 model_path = "mtgv/MobileVLM_V2-1.7B"
 

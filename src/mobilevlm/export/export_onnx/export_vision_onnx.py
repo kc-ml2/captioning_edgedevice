@@ -1,11 +1,9 @@
-# export_vision_onnx.py
-
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import torch
-from pytorch.model.mobilevlm import load_pretrained_model
+from model.mobilevlm import load_pretrained_model
 
 
 device = torch.device("cpu")

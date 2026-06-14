@@ -1,18 +1,18 @@
+// multimodalInput.swift
+
+
 import Foundation
 import CoreML
 
 func buildMultimodalEmbeddings(
     inputIds: [Int],
     imageFeatures: MLMultiArray,
-    embeddingWeights: [Int8]
 ) -> MLMultiArray? {
 
     let hiddenSize = 2048
     let imageTokenIndex = -200
-    let embeddingScale: Float32 = 0.0029681348
-    
+
     let imageSeqLen: Int
-    
 
     if imageFeatures.shape.count == 3 {
 
@@ -28,19 +28,11 @@ func buildMultimodalEmbeddings(
         return nil
     }
 
-    // =========================
-    // final sequence length
-    // =========================
-
     let textTokenCount =
         inputIds.filter { $0 != imageTokenIndex }.count
 
     let finalSeqLen =
         textTokenCount + imageSeqLen
-
-    // =========================
-    // output allocation
-    // =========================
 
     guard let output = try? MLMultiArray(
         shape: [
@@ -55,10 +47,6 @@ func buildMultimodalEmbeddings(
         return nil
     }
 
-    // =========================
-    // pointers
-    // =========================
-
     let outputPtr = output.dataPointer.bindMemory(
         to: Float32.self,
         capacity: output.count
@@ -69,15 +57,10 @@ func buildMultimodalEmbeddings(
         capacity: imageFeatures.count
     )
 
-    // =========================
-    // build embeddings
-    // =========================
-
     var outRow = 0
 
     for tokenId in inputIds {
 
-        // IMAGE TOKEN
         if tokenId == imageTokenIndex {
 
             for i in 0..<imageSeqLen {
@@ -99,8 +82,15 @@ func buildMultimodalEmbeddings(
 
         } else {
 
-            let embedOffset =
-                tokenId * hiddenSize
+            let embedding =
+                makeNextTokenEmbedding(
+                    tokenId: tokenId
+                )
+
+            let embPtr = embedding.dataPointer.bindMemory(
+                to: Float32.self,
+                capacity: embedding.count
+            )
 
             let outputOffset =
                 outRow * hiddenSize
@@ -108,9 +98,7 @@ func buildMultimodalEmbeddings(
             for j in 0..<hiddenSize {
 
                 outputPtr[outputOffset + j] =
-                    Float32(
-                        embeddingWeights[embedOffset + j]
-                    ) * embeddingScale
+                    embPtr[j]
             }
 
             outRow += 1

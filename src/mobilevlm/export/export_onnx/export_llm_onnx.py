@@ -2,14 +2,14 @@
 
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import torch
 import onnx
 from PIL import Image
 
-from pytorch.model.mobilevlm import load_pretrained_model
-from pytorch.model.mutils import process_images, build_prompt, tokenizer_image_token
+from model.mobilevlm import load_pretrained_model
+from model.mutils import process_images, build_prompt, tokenizer_image_token
 
 
 # ===============================
@@ -22,6 +22,7 @@ class DecoderWrapper(torch.nn.Module):
         self.lm_head = model.lm_head
 
     def forward(self, inputs_embeds, attention_mask, *past_key_values):
+
 
         # ---- flat → tuple ----
         pkv = []
@@ -72,13 +73,13 @@ def main():
     # ===============================
     # 3. Run prefill to obtain shapes
     # ===============================
-    img_path = "sample.jpg"
+    img_path = "../000000000139.jpg"
     image = Image.open(img_path).convert("RGB")
 
     image_tensor = process_images([image], image_processor, model.config)
     image_tensor = image_tensor.to(device=device, dtype=torch.float32)
 
-    question = "Describe the image in detail."
+    question = "What objects are visible in the image."
     prompt = build_prompt(question)
 
     input_ids = tokenizer_image_token(

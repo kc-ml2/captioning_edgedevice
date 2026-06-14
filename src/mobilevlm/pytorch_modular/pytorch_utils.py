@@ -111,7 +111,8 @@ def tokenize_image_question(
     ).unsqueeze(0)
 
 
-def pytorch_empty_kv(
+def pytorch_zero_kv(
+    seq_len=1,
     device="cpu",
     dtype=torch.float32,
 ):
@@ -120,20 +121,20 @@ def pytorch_empty_kv(
     num_kv_heads = 16
     head_dim = 128
 
-    empty_kv = []
+    zero_kv = []
 
     for _ in range(num_layers):
         k = torch.zeros(
-            (batch_size, num_kv_heads, 1, head_dim),
+            (batch_size, num_kv_heads, seq_len, head_dim),
             dtype=dtype,
             device=device,
         )
         v = torch.zeros(
-            (batch_size, num_kv_heads, 1, head_dim),
+            (batch_size, num_kv_heads, seq_len, head_dim),
             dtype=dtype,
             device=device,
         )
 
-        empty_kv.append((k, v))
+        zero_kv.append((k, v))
 
-    return empty_kv
+    return zero_kv
