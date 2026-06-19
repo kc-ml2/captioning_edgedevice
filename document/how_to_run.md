@@ -25,11 +25,6 @@ python src/mobilevlm/pytorch/pytorch_mobilevlm.py
 
 ### ONNX Deployment
 
-Change version for dependencies:
-```bash
-pip install torch==2.0.1 torchvision==0.15.2 transformers==4.33.1 tokenizers==0.13.3 
-```
-
 Export ONNX weights:
 ```bash
 python src/mobilevlm/export/export_onnx/export_vision_onnx.py
@@ -45,7 +40,7 @@ We need only these weights related ONNX:
 
 Run inference:
 ```bash
-python src/mobilevlm/onnx/onnx_mobilevlm.py
+python src/mobilevlm/onnx_modular/onnx_mobilevlm.py
 ```
 
 ### Core ML / iOS Deployment
@@ -54,14 +49,8 @@ You need macOS and Xcode to run the iOS application.
 
 First, export the Core ML model weights.
 
-Re-check for library version dependencies (it is same in requirements.txt):
-
 ```bash
-pip install torch==2.1.2 torchvision==0.16.2 transformers==4.46.3 tokenizers==0.20.3
-```
-
-```bash
-python src/mobilevlm/export/export_coreml/export_vision_coreml.py
+python src/mobilevlm/export/export_coreml/export_vit_coreml.py
 python src/mobilevlm/export/export_coreml/export_projector_coreml.py
 python src/mobilevlm/export/export_coreml/export_embed_tokens_bin.py
 python src/mobilevlm/export/export_coreml/export_tokenizer.py
