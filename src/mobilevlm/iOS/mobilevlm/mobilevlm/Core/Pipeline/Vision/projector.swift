@@ -9,7 +9,7 @@ func runProjector(
         let model =
             ModelManager.shared.projectorModel
 
-        let input = Projector_int8Input(
+        let input = projector_fp16Input(
             image_features: mlInput
         )
 

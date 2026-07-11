@@ -1,6 +1,9 @@
+// visionEncoder.swift
+
+
 import CoreML
 
-func runVisionTower(
+func runVisionEnc(
     mlInput: MLMultiArray
 ) -> MLMultiArray? {
 
@@ -9,7 +12,7 @@ func runVisionTower(
         let model =
             ModelManager.shared.visionModel
 
-        let input = VisionEncoder_int8Input(
+        let input = vit_fp16Input(
             pixel_values: mlInput
         )
 

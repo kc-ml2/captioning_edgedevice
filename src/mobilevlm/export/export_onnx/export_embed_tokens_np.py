@@ -1,35 +1,28 @@
-# export_token_embed_np.py
+# export_embed_tokens_np.py
 
-import sys
-import os
+import sys, os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
+from pytorch_modular.pytorch_mobilellama import MobileLlamaModel
 import numpy as np
-from pytorch.model.mobilevlm import load_pretrained_model
+import torch
 
-
-# HF model id or local path
 MODEL_PATH = "mtgv/MobileVLM_V2-1.7B"
 
-tokenizer, model, image_processor, context_len = load_pretrained_model(
-    model_path=MODEL_PATH,
-    device="cpu",
-)
-model.eval()  # MobileLlamaForCausalLM
+mobilellama = MobileLlamaModel.from_pretrained(
+    MODEL_PATH,
+    low_cpu_mem_usage=True,
+    torch_dtype=torch.float32,
+).eval()
 
-
-for name, module in model.model.named_modules():
-    if "embed_tokens" in name:
-        print(name, module)
-
+token_embedding = mobilellama.embed_tokens
+token_embedding.eval()
 
 embedding_weight = (
-    model.get_input_embeddings()
-    .weight
+    token_embedding.weight
     .detach()
     .cpu()
     .numpy()
 )
-
 
 np.save("embed_tokens.npy", embedding_weight)

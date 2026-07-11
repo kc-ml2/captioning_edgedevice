@@ -2,48 +2,29 @@
 
 import SwiftUI
 import PhotosUI
-import CoreML
 
 
 struct ContentView: View {
-
+    
     // =========================
     // UI State
     // =========================
     
     @State private var pickerItem: PhotosPickerItem?
-
+    
     @State private var selectedImage: UIImage?
-
-
-    @State private var captionText: String =
-        "Select an image."
+    
+    @State private var captionText: String = "Select an image."
     
     @State private var isProcessing = false
-
+    
+    @State private var showCamera = false
+    
+    private let processor = MultimodalProcessor()
+    
     var body: some View {
-
-        // =========================
-        // UI Layout
-        // =========================
         
         VStack(spacing: 20) {
-            
-            // =========================
-            // Image
-            // =========================
-            
-            PhotosPicker(
-                selection: $pickerItem,
-                matching: .images
-            ) {
-
-                Text("Select Image")
-                    .padding()
-                    .background(Color.blue)
-                    .foregroundColor(.white)
-                    .cornerRadius(10)
-            }
 
             if let image = selectedImage {
 
@@ -54,9 +35,11 @@ struct ContentView: View {
                     .cornerRadius(12)
             }
 
-            // =========================
-            // Caption
-            // =========================
+            ImagePickerView(
+                pickerItem: $pickerItem,
+                showCamera: $showCamera
+            )
+            .padding(.horizontal)
 
             VStack(alignment: .leading, spacing: 8) {
 
@@ -64,8 +47,10 @@ struct ContentView: View {
                     .font(.headline)
 
                 Text(captionText)
-                    .frame(maxWidth: .infinity,
-                           alignment: .leading)
+                    .frame(
+                        maxWidth: .infinity,
+                        alignment: .leading
+                    )
             }
             .padding()
             .background(Color.blue.opacity(0.1))
@@ -73,248 +58,75 @@ struct ContentView: View {
 
             Spacer()
         }
-        .padding()
         
-        // =========================
-        // UI Event Handling
-        // =========================
+        .sheet(isPresented: $showCamera) {
+
+            CameraPicker(
+                selectedImage: $selectedImage
+            )
+        }
         
         .onChange(of: pickerItem) {
-
+            
             Task {
-
+                
                 guard let item = pickerItem else {
                     return
                 }
-
+                
                 guard let data = try? await item.loadTransferable(
                     type: Data.self
                 ) else {
                     return
                 }
-
+                
                 guard let uiImage = UIImage(data: data) else {
                     return
                 }
-
+                
                 DispatchQueue.main.async {
-
-                    self.selectedImage = uiImage
-
-                    guard !self.isProcessing else {
-                        return
-                    }
-
-                    self.isProcessing = true
-                    self.captionText = "Processing..."
-
-                    Task(priority: .userInitiated) {
-
-                        processmultimodal(
-                            uiImage: uiImage
-                        )
-                    }
+                    
+                    selectedImage = uiImage
                 }
             }
         }
-    }
-
-    // =========================
-    // Multimodal Processing
-    // =========================
-
-    func processmultimodal(
-        uiImage: UIImage
-    ) {
         
-        let totalStart = CFAbsoluteTimeGetCurrent()
-        
-        defer {
+        .onChange(of: selectedImage) {
 
-            print(String(
-                format: "⏱ Total Time: %.3f sec",
-                CFAbsoluteTimeGetCurrent() - totalStart
-            ))
-            print("========================================")
-            
-            // =========================
-            // Processing State Reset
-            // =========================
-
-            DispatchQueue.main.async {
-
-                self.isProcessing = false
-            }
-        }
-        
-
-        // =========================
-        // Vision Encoder
-        // =========================
-
-        guard let imageFeatures = encodeImage(uiImage)
-        else {
-            print("❌ Vision pipeline failed")
-            return
-        }
-        
-        // =========================
-        // Multimodal Embedding
-        // =========================
-
-        let mmInputStart = CFAbsoluteTimeGetCurrent()
-
-        let question =
-            "What objects are visible in the scene?"
-
-        guard let multimodalEmbeddings =
-            buildInputEmbeddings(
-                question: question,
-                imageFeatures: imageFeatures
-            ) else {
-
-            return
-        }
-        
-        print(String(
-            format: "⏱ Multimodal Input Time: %.3f sec",
-            CFAbsoluteTimeGetCurrent() - mmInputStart
-        ))
-
-        var generatedTokens: [Int] = []
-
-        let curEmbed = multimodalEmbeddings
-        
-        var curPos =
-            curEmbed.shape[1].intValue + 1
-
-        let bufferManager = AppBufferManager.shared
-
-        bufferManager.resetKVCache()
-
-        let kvCache = bufferManager.kvCaches
-        
-        let reusableNextEmbed =
-            bufferManager.reusableNextEmbed
-        
-        // =========================
-        // reusableNextEmbed dtype
-        // =========================
-
-        guard let attentionMask =
-            makePrefillAttentionMask(
-                curPos: curPos
-            ) else {
-            return
-        }
-        
-        // =========================
-        // Prefill
-        // =========================
-        
-        let prefillStart = CFAbsoluteTimeGetCurrent()
-
-        guard let result = runLLM(
-            inputsEmbeds: curEmbed,
-            attentionMask: attentionMask,
-            pastKeyValues: kvCache
-        ) else {
-            return
-        }
-
-        print(String(
-            format: "⏱ Prefill Time: %.3f sec",
-            CFAbsoluteTimeGetCurrent() - prefillStart
-        ))
-
-        let logits = result.logits
-        
-        let nextToken = getNextToken(
-            logits: logits
-        )
-        
-        var currentKV = result.presentKeyValues
-
-        updateNextTokenEmbedding(
-            tokenId: nextToken,
-            embedBuffer: reusableNextEmbed
-        )
-
-        generatedTokens.append(nextToken)
-
-        curPos += 1
-
-        let maxNewTokens = 40
-        let eosTokenId = 2
-
-        // =========================
-        // Decoder
-        // =========================
-        
-        let decoderStart = CFAbsoluteTimeGetCurrent()
-
-        for _ in 0..<(maxNewTokens - 1) {
-
-            guard let attentionMask =
-                makePrefillAttentionMask(
-                    curPos: curPos
-                ) else {
+            guard let image = selectedImage else {
                 return
             }
 
-
-            guard let result = runLLM(
-                inputsEmbeds: reusableNextEmbed,
-                attentionMask: attentionMask,
-                pastKeyValues: currentKV
-            ) else {
+            guard !isProcessing else {
                 return
             }
 
-            let logits = result.logits
+            isProcessing = true
 
-            let nextToken = getNextToken(
-                logits: logits
-            )
-            
-            currentKV = result.presentKeyValues
+            // First update UI
+            captionText = "Processing..."
 
-            updateNextTokenEmbedding(
-                tokenId: nextToken,
-                embedBuffer: reusableNextEmbed
-            )
+            // Allow SwiftUI to render selected image
+            DispatchQueue.main.asyncAfter(
+                deadline: .now() + 0.1
+            ) {
 
-            generatedTokens.append(nextToken)
+                Task(priority: .userInitiated) {
 
-            if nextToken == eosTokenId {
-                break
+                    let caption =
+                        processor.mobilevlm(
+                            uiImage: image
+                        )
+
+                    await MainActor.run {
+
+                        captionText =
+                            caption ?? "Failed"
+
+                        isProcessing = false
+                    }
+                }
             }
-
-            curPos += 1
-        }
-
-        print(String(
-            format: "⏱ Avg Decoder Time per Toekn: %.3f sec",
-            (CFAbsoluteTimeGetCurrent() - decoderStart) / Double(generatedTokens.count)
-        ))
-
-        // =========================
-        // Decode Tokens
-        // =========================
-
-        guard let caption = decodeTokens(
-            generatedTokens: generatedTokens
-        ) else {
-            return
-        }
-        
-        // =========================
-        // UI update
-        // =========================
-
-        DispatchQueue.main.async {
-
-            self.captionText = caption
         }
     }
 }

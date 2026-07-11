@@ -1,9 +1,14 @@
+// embeddingPipeline.swift
+
+
 import CoreML
 
 func buildInputEmbeddings(
-    question: String,
+    question: String = "What objects are visible in the scene?",
     imageFeatures: MLMultiArray
 ) -> MLMultiArray? {
+    
+    let mmInputStart = CFAbsoluteTimeGetCurrent()
 
     // =========================
     // tokenize
@@ -18,13 +23,6 @@ func buildInputEmbeddings(
     }
 
     // =========================
-    // shared embedding weights
-    // =========================
-
-    let embeddingWeights: [Int8] =
-        ModelManager.shared.embeddingWeights
-
-    // =========================
     // multimodal embeddings
     // =========================
 
@@ -32,12 +30,16 @@ func buildInputEmbeddings(
         buildMultimodalEmbeddings(
             inputIds: inputIds,
             imageFeatures: imageFeatures,
-            embeddingWeights: embeddingWeights
         ) else {
 
         print("❌ Failed to build embeddings")
         return nil
     }
+    
+    print(String(
+        format: "⏱ Multimodal Input Time: %.3f sec",
+        CFAbsoluteTimeGetCurrent() - mmInputStart
+    ))
 
     return embeddings
 }

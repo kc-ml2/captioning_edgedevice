@@ -1,33 +1,34 @@
-# export_projector_onnx.py
-
-import sys
-import os
+import sys, os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
 import torch
 import onnx
 
-from pytorch.model.mobilevlm import load_pretrained_model
+from pytorch_modular.pytorch_mm_projector import LDPNetV2Projector
 
-model_path = "mtgv/MobileVLM_V2-1.7B"
+mm_projector = LDPNetV2Projector().eval()
 
-tokenizer, model, image_processor, context_len = load_pretrained_model(
-    model_path=model_path,
-    device="cpu",
+MODEL_PATH = os.path.abspath(
+    os.path.join(
+        os.path.dirname(__file__),
+        "../../pytorch_modular/mm_projector_weights.pth"
+    )
 )
-model.eval()
 
-projector = model.get_model().mm_projector.eval()
+mm_projector.load_state_dict(
+    torch.load(
+        MODEL_PATH,
+        map_location="cpu",
+    )
+)
 
-mm_hidden_size = model.config.mm_hidden_size
-dummy_input = torch.randn(1, 576, mm_hidden_size, dtype=torch.float32)
+dummy_input = torch.randn(1, 576, 1024, dtype=torch.float32)
 
 with torch.no_grad():
-    y = projector(dummy_input)
-    print("PyTorch output shape:", y.shape)
 
     torch.onnx.export(
-        projector,
+        mm_projector,
         dummy_input,
         "mm_projector.onnx",
         export_params=True,

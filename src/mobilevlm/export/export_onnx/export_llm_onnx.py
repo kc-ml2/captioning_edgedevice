@@ -6,10 +6,8 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")
 
 import torch
 import onnx
-from PIL import Image
 
 from pytorch.model.mobilevlm import load_pretrained_model
-from pytorch.model.mutils import process_images, build_prompt, tokenizer_image_token
 
 
 # ===============================
@@ -22,6 +20,7 @@ class DecoderWrapper(torch.nn.Module):
         self.lm_head = model.lm_head
 
     def forward(self, inputs_embeds, attention_mask, *past_key_values):
+
 
         # ---- flat → tuple ----
         pkv = []
@@ -63,78 +62,36 @@ def main():
     device = torch.device("cpu")
     MODEL_PATH = "mtgv/MobileVLM_V2-1.7B"
 
-    tokenizer, model, image_processor, _ = load_pretrained_model(
+    _, model, _, _ = load_pretrained_model(
         model_path=MODEL_PATH,
         device="cpu",
     )
     model.eval()
 
     # ===============================
-    # 3. Run prefill to obtain shapes
-    # ===============================
-    img_path = "sample.jpg"
-    image = Image.open(img_path).convert("RGB")
-
-    image_tensor = process_images([image], image_processor, model.config)
-    image_tensor = image_tensor.to(device=device, dtype=torch.float32)
-
-    question = "Describe the image in detail."
-    prompt = build_prompt(question)
-
-    input_ids = tokenizer_image_token(
-        prompt,
-        tokenizer,
-        return_tensors="pt",
-    ).unsqueeze(0).to(device)
-
-    attention_mask = torch.ones_like(input_ids)
-
-    input_ids, attention_mask_, _, inputs_embeds, _ = \
-        model.prepare_inputs_labels_for_multimodal(
-            input_ids,
-            attention_mask,
-            past_key_values=None,
-            labels=None,
-            images=image_tensor,
-        )
-
-    inputs_embeds = inputs_embeds.to(torch.float32)
-    attention_mask_ = attention_mask_.to(torch.long)
-
-    # ===============================
-    # 4. Extract KV shapes
-    # ===============================
-    with torch.no_grad():
-        outputs = model.model(
-            inputs_embeds=inputs_embeds,
-            attention_mask=attention_mask_,
-            use_cache=True,
-            return_dict=True,
-        )
-        pkv = outputs.past_key_values
-
-    num_layers = len(pkv)
-
-    # ===============================
     # 5. Dummy Inputs
     # ===============================
 
     # decode step (1 token)
-    dummy_inputs_embeds = torch.randn(1, 32, inputs_embeds.shape[-1], dtype=torch.float32)
+    dummy_inputs_embeds = torch.randn(1, 32, 2048, dtype=torch.float32)
 
     # attention_mask is dynamic
     dummy_attention_mask = torch.ones((1, 32), dtype=torch.long)
 
     dummy_pkv = []
-    for k, v in pkv:
-        shape = list(k.shape)
-        shape[-2] = 0  # past_seq = 0          
 
-        dummy_k = torch.zeros(shape, dtype=torch.float32)
-        dummy_v = torch.zeros(shape, dtype=torch.float32)
+    for _ in range(24):
+        dummy_k = torch.zeros(
+            (1, 16, 0, 128),
+            dtype=torch.float32
+        )
 
-        dummy_pkv.append(dummy_k)
-        dummy_pkv.append(dummy_v)
+        dummy_v = torch.zeros(
+            (1, 16, 0, 128),
+            dtype=torch.float32
+        )
+
+        dummy_pkv.append((dummy_k, dummy_v))
 
     # ===============================
     # 6. Wrapper

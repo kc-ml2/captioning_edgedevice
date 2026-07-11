@@ -9,7 +9,7 @@ class CLIPVisionTower(nn.Module):
     def __init__(self, vision_tower, args, delay_load=False):
         super().__init__()
         self.is_loaded = False
-        self.vision_tower_name = vision_tower    # openai/clip-vit-large-patch14-336
+        self.vision_tower_name = vision_tower  # openai/clip-vit-large-patch14-336
         self.select_layer = args.mm_vision_select_layer
         self.select_feature = getattr(args, 'mm_vision_select_feature', 'patch')
         if not delay_load:

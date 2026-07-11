@@ -5,29 +5,19 @@ final class ModelManager {
 
     static let shared = ModelManager()
 
-    // =========================
-    // CoreML Models
-    // =========================
+    let visionModel: vit_fp16
+    let projectorModel: projector_fp16
+    let embeddingModel: embeddinglayer_fp16
+    let lmheadModel: lm_head_fp16
+    
+    let llmModelURL: URL
 
-    let visionModel: VisionEncoder_int8
-    let projectorModel: Projector_int8
-    let llmModel: mobilellama_int8
 
     // =========================
     // Tokenizer
     // =========================
 
     let tokenizer: SentencepieceTokenizer
-
-    // =========================
-    // Embedding Weights
-    // =========================
-
-    let embeddingWeights: [Int8]
-
-    // =========================
-    // Init
-    // =========================
 
     private init() {
 
@@ -36,39 +26,35 @@ final class ModelManager {
 
         do {
 
-            // =====================
-            // Vision
-            // =====================
+            visionModel = try vit_fp16(configuration: config)
+            projectorModel = try projector_fp16(configuration: config)
+            embeddingModel = try embeddinglayer_fp16(configuration: config)
+            lmheadModel = try lm_head_fp16(configuration: config)
 
-            visionModel = try VisionEncoder_int8(
-                configuration: config
-            )
-
-            // =====================
-            // Projector
-            // =====================
-
-            projectorModel = try Projector_int8(
-                configuration: config
-            )
-
-            // =====================
+            // =====================================
             // LLM
-            // =====================
-
-            llmModel = try mobilellama_int8(
-                configuration: config
-            )
-
-            // =====================
+            // =====================================
+            
+            guard let llmURL =
+                Bundle.main.url(
+                    forResource: "mobilellama_multifunction_fp16",
+                    withExtension: "mlmodelc"
+                )
+            else {
+                fatalError("LLM model not found")
+            }
+            
+            llmModelURL = llmURL
+            
+            // =====================================
             // Tokenizer
-            // =====================
+            // =====================================
 
             guard let tokenizerPath =
-                Bundle.main.path(
-                    forResource: "tokenizer",
-                    ofType: "model"
-                )
+                    Bundle.main.path(
+                        forResource: "tokenizer",
+                        ofType: "model"
+                    )
             else {
 
                 fatalError(
@@ -77,41 +63,9 @@ final class ModelManager {
             }
 
             tokenizer =
-                try SentencepieceTokenizer(
-                    modelPath: tokenizerPath
-                )
-
-            // =====================
-            // Embedding Weights
-            // =====================
-
-            guard let embedURL =
-                Bundle.main.url(
-                    forResource: "embed_tokens_int8",
-                    withExtension: "bin"
-                )
-            else {
-
-                fatalError(
-                    "❌ embed_tokens.bin not found"
-                )
-            }
-
-            let data =
-                try Data(contentsOf: embedURL)
-
-            embeddingWeights =
-                data.withUnsafeBytes {
-
-                    let buffer =
-                        $0.bindMemory(
-                            to: Int8.self
-                        )
-
-                    return Array(buffer)
-                }
-
-            print("✅ All resources loaded")
+            try SentencepieceTokenizer(
+                modelPath: tokenizerPath
+            )
 
         } catch {
 

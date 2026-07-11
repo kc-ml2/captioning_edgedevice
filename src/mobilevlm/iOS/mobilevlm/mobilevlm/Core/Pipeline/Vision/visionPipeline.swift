@@ -4,50 +4,43 @@ import CoreML
 
 func encodeImage(
     _ uiImage: UIImage
-) -> MLMultiArray? {
-
+) -> MLMultiArray {
+    
     // =========================
     // preprocessing
     // =========================
     
     let preprocessStart =
-        CFAbsoluteTimeGetCurrent()
-
-    guard let tensor = preprocessImage(
+    CFAbsoluteTimeGetCurrent()
+    
+    let tensor = preprocessImage(
         uiImage
-    ) else {
-
-        print("❌ Preprocessing failed")
-        return nil
-    }
+    )
     
     print(String(
         format: "⏱ Preprocess Time: %.3f sec",
         CFAbsoluteTimeGetCurrent() - preprocessStart
     ))
     
-    
-
     // =========================
     // vision encoder
     // =========================
     
     let visionStart =
-        CFAbsoluteTimeGetCurrent()
+    CFAbsoluteTimeGetCurrent()
     
-    guard let visionOut = runVisionTower(
+    guard let visionOut = runVisionEnc(
         mlInput: tensor
     ) else {
-
-        print("❌ Vision encoder failed")
-        return nil
+        
+        fatalError("❌ Vision encoder failed")
     }
     
-     print(String(
-         format: "⏱ Vision Encoder Time: %.3f sec",
-         CFAbsoluteTimeGetCurrent() - visionStart
-     ))
-
+    print(String(
+        format: "⏱ Vision Encoder Time: %.3f sec",
+        CFAbsoluteTimeGetCurrent() - visionStart
+    ))
+    
     // =========================
     // projector
     // =========================
@@ -59,8 +52,7 @@ func encodeImage(
         mlInput: visionOut
     ) else {
 
-        print("❌ Projector failed")
-        return nil
+        fatalError("❌ Projector failed")
     }
 
     print(String(

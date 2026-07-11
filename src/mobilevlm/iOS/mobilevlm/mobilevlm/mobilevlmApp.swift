@@ -4,24 +4,21 @@ import SwiftUI
 struct mobilevlmApp: App {
 
     init() {
-
-        // =========================
-        // CoreML Model Preload
-        // =========================
-
+        
+        let startTime = CFAbsoluteTimeGetCurrent()
+        
         _ = ModelManager.shared
-
-        // =========================
-        // Buffer Preload
-        // =========================
-
-        _ = AppBufferManager.shared
+        
+        print(
+            String(
+                format: "⏱ ModelManager Load Time: %.3f sec", CFAbsoluteTimeGetCurrent() - startTime
+            )
+        )
     }
 
     var body: some Scene {
 
         WindowGroup {
-
             ContentView()
         }
     }
