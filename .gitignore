@@ -40,6 +40,9 @@ xcuserdata/
 .env.*
 !.env.example
 
+# Local model conversion workspace
+/workspace/
+
 # Model weights and generated model artifacts
 *.onnx
 *.mlmodel

@@ -15,4 +15,16 @@ The code under `reference/` is retained only as a correctness and architecture r
 
 ## Status
 
-The MLX Swift implementation has not been scaffolded yet.
+A macOS validation CLI now runs the complete MLX Swift MobileVLM pipeline:
+
+```text
+JPEG → CLIP preprocessing → CLIP Vision → LDPNetV2 → SentencePiece prompt
+→ MobileLlama prefill → KV-cache decode → caption
+```
+
+The sample image's full greedy token sequence and caption match the independent
+PyTorch reference.
+
+- [MLX Swift 전환 기록](docs/mlx-swift-progress.md)
+- [Conversion details](tools/conversion/README.md)
+- [Validation and execution](tools/swift-validation/README.md)
