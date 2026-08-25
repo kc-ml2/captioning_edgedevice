@@ -9,6 +9,7 @@ actor CaptionPipeline {
         case modelNotInstalled
         case invalidFrame
         case missingWeight(String)
+        case unsupportedModel(String)
 
         var errorDescription: String? {
             switch self {
@@ -18,6 +19,8 @@ actor CaptionPipeline {
                 "카메라 프레임을 읽지 못했어요."
             case .missingWeight(let name):
                 "모델 가중치가 없어요: \(name)"
+            case .unsupportedModel(let reason):
+                "지원하지 않는 모델이에요: \(reason)"
             }
         }
     }
@@ -32,6 +35,8 @@ actor CaptionPipeline {
     private let headDimension = 128
     private let languageLayers = 24
     private let imageToken = -200
+    private let quantizationGroupSize = 64
+    private let quantizationBits = 4
 
     private var weights: [String: MLXArray]?
     private var tokenizer: SentencepieceTokenizer?
@@ -56,13 +61,12 @@ actor CaptionPipeline {
             throw PipelineError.invalidFrame
         }
 
-        let embedding = try required(weights, "language_model.embed_tokens.weight")
         let pixels = loadPixels(image)
         let imageFeatures = try projector(vision(pixels, weights), weights)
         eval(imageFeatures)
 
-        let before = embedding.take(MLXArray(ids[..<imagePosition]), axis: 0)
-        let after = embedding.take(MLXArray(ids[(imagePosition + 1)...]), axis: 0)
+        let before = try embed(Array(ids[..<imagePosition]), weights)
+        let after = try embed(Array(ids[(imagePosition + 1)...]), weights)
         var hidden = concatenated([before, imageFeatures[0], after], axis: 0)
             .expandedDimensions(axis: 0)
         var caches: [Cache] = []
@@ -94,7 +98,7 @@ actor CaptionPipeline {
             generated.append(token)
             if token == 2 { break }
 
-            hidden = embedding[token].reshaped(1, 1, hiddenSize)
+            hidden = try embed([token], weights).reshaped(1, 1, hiddenSize)
             for layer in 0..<languageLayers {
                 let result = try languageLayer(
                     hidden,
@@ -123,6 +127,8 @@ actor CaptionPipeline {
         }
 
         await progress?("모델을 불러오고 있어요…")
+        Memory.cacheLimit = 20 * 1024 * 1024
+        try validateModelConfiguration(directory)
         let indexURL = directory.appending(path: "model.safetensors.index.json")
         let data = try Data(contentsOf: indexURL)
         let object = try JSONSerialization.jsonObject(with: data) as! [String: Any]
@@ -171,14 +177,29 @@ actor CaptionPipeline {
     }
 
     private func isValidModel(at directory: URL) -> Bool {
-        let required = [
-            "model.safetensors.index.json",
-            "model-00001-of-00002.safetensors",
-            "model-00002-of-00002.safetensors",
-            "tokenizer.model",
-        ]
-        return required.allSatisfy {
-            FileManager.default.fileExists(atPath: directory.appending(path: $0).path)
+        let fileManager = FileManager.default
+        let indexURL = directory.appending(path: "model.safetensors.index.json")
+        let required = ["config.json", "model.safetensors.index.json", "tokenizer.model"]
+        guard required.allSatisfy({ fileManager.fileExists(atPath: directory.appending(path: $0).path) }),
+              let data = try? Data(contentsOf: indexURL),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let weightMap = object["weight_map"] as? [String: String] else {
+            return false
+        }
+        return !weightMap.isEmpty && Set(weightMap.values).allSatisfy {
+            fileManager.fileExists(atPath: directory.appending(path: $0).path)
+        }
+    }
+
+    private func validateModelConfiguration(_ directory: URL) throws {
+        let data = try Data(contentsOf: directory.appending(path: "config.json"))
+        guard let config = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              config["weight_dtype"] as? String == "mixed_fp16_q4",
+              let quantization = config["quantization"] as? [String: Any],
+              quantization["bits"] as? Int == quantizationBits,
+              quantization["group_size"] as? Int == quantizationGroupSize,
+              quantization["mode"] as? String == "affine" else {
+            throw PipelineError.unsupportedModel("iPhone에서는 MLX 4-bit 모델이 필요합니다.")
         }
     }
 
@@ -194,7 +215,41 @@ actor CaptionPipeline {
         _ weights: [String: MLXArray],
         _ name: String
     ) throws -> MLXArray {
-        input.matmul(try required(weights, name).transposed())
+        let weight = try required(weights, name)
+        let prefix = String(name.dropLast(".weight".count))
+        if let scales = weights["\(prefix).scales"] {
+            return quantizedMM(
+                input,
+                weight,
+                scales: scales,
+                biases: weights["\(prefix).biases"],
+                transpose: true,
+                groupSize: quantizationGroupSize,
+                bits: quantizationBits,
+                mode: .affine
+            )
+        }
+        return input.matmul(weight.transposed())
+    }
+
+    private func embed(_ tokenIDs: [Int], _ weights: [String: MLXArray]) throws -> MLXArray {
+        let name = "language_model.embed_tokens.weight"
+        let weight = try required(weights, name)
+        let indices = MLXArray(tokenIDs)
+        guard let scales = weights["language_model.embed_tokens.scales"] else {
+            return weight.take(indices, axis: 0)
+        }
+        let selectedWeight = weight.take(indices, axis: 0)
+        let selectedScales = scales.take(indices, axis: 0)
+        let selectedBiases = weights["language_model.embed_tokens.biases"]?.take(indices, axis: 0)
+        return dequantized(
+            selectedWeight,
+            scales: selectedScales,
+            biases: selectedBiases,
+            groupSize: quantizationGroupSize,
+            bits: quantizationBits,
+            mode: .affine
+        )
     }
 
     private func affine(

@@ -81,8 +81,17 @@ actor ModelStore {
     }
 
     var isInstalled: Bool {
-        guard let directory = try? installedDirectory() else { return false }
-        return fileManager.fileExists(atPath: directory.appending(path: "installed-manifest.json").path)
+        guard let directory = try? installedDirectory(),
+              fileManager.fileExists(atPath: directory.appending(path: "installed-manifest.json").path),
+              let data = try? Data(contentsOf: directory.appending(path: "config.json")),
+              let config = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              config["weight_dtype"] as? String == "mixed_fp16_q4",
+              let quantization = config["quantization"] as? [String: Any],
+              quantization["bits"] as? Int == 4,
+              quantization["group_size"] as? Int == 64 else {
+            return false
+        }
+        return true
     }
 
     func latestAvailability() async throws -> Availability {

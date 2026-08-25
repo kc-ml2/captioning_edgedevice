@@ -41,6 +41,41 @@ The converter:
 - copies tokenizer, generation, and image preprocessing metadata;
 - creates a conversion manifest and sharded safetensors index.
 
+## Quantize for iPhone memory limits
+
+The complete FP16 checkpoint is about 3.12 GiB of tensor data and exceeds the
+practical memory limit once MLX activations and KV caches are included. Build a
+mixed checkpoint that keeps vision/projector tensors in FP16 and quantizes the
+language model, token embedding, and LM head with MLX affine 4-bit groups:
+
+```bash
+python tools/conversion/quantize_mobilevlm.py \
+  --input workspace/mobilevlm-mlx/converted-fp16 \
+  --output workspace/mobilevlm-mlx/converted-q4 \
+  --bits 4 \
+  --group-size 64 \
+  --max-shard-size-mb 700
+```
+
+The current checkpoint changes from 3,348,242,432 bytes of FP16 tensors to
+1,387,208,704 bytes of mixed FP16/Q4 tensors. It quantizes 170 two-dimensional
+language weights while retaining FP16 normalization, vision, and projector
+weights. The output `config.json` records the quantization mode and is checked
+by the iOS runtime before loading.
+
+Run the independent PyTorch caption path against both checkpoints to inspect
+quality loss before publication:
+
+```bash
+python tools/conversion/run_reference_caption.py \
+  --model workspace/mobilevlm-mlx/converted-q4 \
+  --image reference/000000000139.jpg
+```
+
+For the checked sample, Q4 retains the primary objects (`television`, `table`,
+`chairs`, and `woman`) but omits some details produced by FP16. Quantization is
+therefore a deliberate memory/quality trade-off, not a lossless conversion.
+
 ## Verify checkpoint conversion
 
 ```bash

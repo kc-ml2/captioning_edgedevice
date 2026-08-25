@@ -28,12 +28,35 @@ def args():
     return p.parse_args()
 
 
+def dequantize_affine_q4(weight, scales, biases, group_size=64):
+    """Independently unpack MLX affine q4 weights into float32 PyTorch tensors."""
+    packed = weight.to(torch.int64)
+    shifts = torch.arange(0, 32, 4, dtype=torch.int64)
+    values = ((packed.unsqueeze(-1) >> shifts) & 0xF).flatten(-2).float()
+    groups = values.shape[-1] // group_size
+    shape = values.shape[:-1] + (groups, group_size)
+    return (values.reshape(shape) * scales.float().unsqueeze(-1) + biases.float().unsqueeze(-1)).flatten(-2)
+
+
 def load_weights(path: Path):
     index = json.loads((path / "model.safetensors.index.json").read_text())
-    result = {}
+    stored = {}
     for shard in sorted(set(index["weight_map"].values())):
         with safe_open(path / shard, framework="pt", device="cpu") as f:
-            result.update({name: f.get_tensor(name).float() for name in f.keys()})
+            stored.update({name: f.get_tensor(name) for name in f.keys()})
+
+    result = {}
+    for name, tensor in stored.items():
+        if name.endswith((".scales", ".biases")):
+            continue
+        prefix = name.removesuffix(".weight")
+        scales = stored.get(f"{prefix}.scales")
+        biases = stored.get(f"{prefix}.biases")
+        result[name] = (
+            dequantize_affine_q4(tensor, scales, biases)
+            if scales is not None and biases is not None
+            else tensor.float()
+        )
     return result
 
 

@@ -72,15 +72,19 @@ https://d3unqpp9xgzmm4.cloudfront.net/odic/models
 
 | 항목 | 값 |
 |---|---|
-| Version | `mobilevlm-v2-1.7b-fp16-v1` |
+| Version | `mobilevlm-v2-1.7b-mixed-q4-v1` |
 | 모델 파일 수 | 10 |
-| 모델 전체 크기 | `3,349,107,824 bytes` |
+| 전체 다운로드 크기 | `1,387,935,862 bytes` |
+| tensor 크기 | `1,387,208,704 bytes` |
 | safetensors shard 수 | 2 |
+| 양자화 | Language/embedding/LM head affine Q4, vision/projector FP16 |
 
 ```text
-model-00001-of-00002.safetensors  1,984,063,776 bytes
-model-00002-of-00002.safetensors  1,364,259,360 bytes
+model-00001-of-00002.safetensors  733,992,949 bytes
+model-00002-of-00002.safetensors  653,336,040 bytes
 ```
+
+초기 FP16 릴리스 `mobilevlm-v2-1.7b-fp16-v1`은 3,349,107,824 bytes로 iPhone의 약 3,376MB process memory high watermark에 너무 가까워 activation과 KV cache 생성 시 `EXC_RESOURCE (RESOURCE_TYPE_MEMORY)`가 발생했다. 현재 앱은 mixed Q4 설정만 실행 가능한 모델로 인정하며 FP16 릴리스는 immutable rollback/비교 artifact로만 유지한다.
 
 AWS CLI의 multipart upload는 대형 파일을 내부 전송 조각으로 나누는 기능이다. 실제 모델 파일 또는 앱 다운로드 단위가 수백 개로 나뉜 것은 아니며, 앱에는 위 두 shard가 전달된다.
 
@@ -350,9 +354,9 @@ workspace/mobilevlm-mlx/converted-fp16/
 {
   "schemaVersion": 1,
   "model": "MobileVLM_V2-1.7B-MLX",
-  "version": "mobilevlm-v2-1.7b-fp16-v1",
+  "version": "mobilevlm-v2-1.7b-mixed-q4-v1",
   "createdAt": "<UTC timestamp>",
-  "totalSize": 3349107824,
+  "totalSize": 1387935862,
   "files": [
     {
       "path": "model-00001-of-00002.safetensors",
@@ -368,8 +372,8 @@ workspace/mobilevlm-mlx/converted-fp16/
 ```json
 {
   "schemaVersion": 1,
-  "version": "mobilevlm-v2-1.7b-fp16-v1",
-  "manifestPath": "releases/mobilevlm-v2-1.7b-fp16-v1/manifest.json"
+  "version": "mobilevlm-v2-1.7b-mixed-q4-v1",
+  "manifestPath": "releases/mobilevlm-v2-1.7b-mixed-q4-v1/manifest.json"
 }
 ```
 
@@ -405,7 +409,7 @@ python tools/model-distribution/publish_model.py \
   --source workspace/mobilevlm-mlx/converted-fp16 \
   --bucket odic-models-210499750105-ap-northeast-2 \
   --prefix odic/models \
-  --version mobilevlm-v2-1.7b-fp16-v1 \
+  --version mobilevlm-v2-1.7b-mixed-q4-v1 \
   --profile odic-publisher \
   --region ap-northeast-2 \
   --cloudfront-distribution-id E3MHDM0TX47EYC
@@ -562,7 +566,7 @@ export ODIC_CDN=https://d3unqpp9xgzmm4.cloudfront.net/odic/models
 curl --fail --show-error "$ODIC_CDN/latest.json"
 
 curl --fail --show-error \
-  "$ODIC_CDN/releases/mobilevlm-v2-1.7b-fp16-v1/manifest.json"
+  "$ODIC_CDN/releases/mobilevlm-v2-1.7b-mixed-q4-v1/manifest.json"
 ```
 
 정상 응답은 HTTP 200이다.
@@ -571,7 +575,7 @@ curl --fail --show-error \
 
 ```bash
 curl --fail --head \
-  "$ODIC_CDN/releases/mobilevlm-v2-1.7b-fp16-v1/model-00001-of-00002.safetensors"
+  "$ODIC_CDN/releases/mobilevlm-v2-1.7b-mixed-q4-v1/model-00001-of-00002.safetensors"
 ```
 
 확인 항목:
@@ -589,7 +593,7 @@ Cache-Control: public,max-age=31536000,immutable
 ```bash
 curl --fail \
   --range 0-1023 \
-  "$ODIC_CDN/releases/mobilevlm-v2-1.7b-fp16-v1/model-00001-of-00002.safetensors" \
+  "$ODIC_CDN/releases/mobilevlm-v2-1.7b-mixed-q4-v1/model-00001-of-00002.safetensors" \
   -o /tmp/odic-range.bin
 
 stat -f '%z' /tmp/odic-range.bin
@@ -911,10 +915,10 @@ aws cloudfront delete-distribution \
 
 ### 비용
 
-- S3에 약 3.35GB가 저장된다.
+- 현재 Q4 모델 한 버전은 약 1.39GB이며, rollback용 FP16 릴리스까지 S3에 함께 저장되어 있다.
 - 버전별 immutable release를 계속 보관하면 저장 용량이 누적된다.
 - CloudFront egress와 request 비용이 발생한다.
-- iPhone 한 대가 모델 전체를 새로 받으면 약 3.35GB가 전송된다.
+- iPhone 한 대가 현재 Q4 모델 전체를 새로 받으면 약 1.39GB가 전송된다.
 - 사용하지 않는 구버전은 충분한 rollback 기간 후 lifecycle 정책으로 정리할 수 있다.
 
 ### 모바일 네트워크
