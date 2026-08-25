@@ -1022,7 +1022,11 @@ xcodebuild \
 - AES-256 기본 암호화 적용
 - versioning 적용
 - BucketOwnerEnforced 적용
-- 모델 10개 파일 업로드
+- FP16의 iPhone memory high watermark 초과 원인 확인
+- Language/embedding/LM head affine Q4 변환 완료
+- Mixed FP16/Q4 tensor 크기 1,387,208,704 bytes 확인
+- Q4 독립 PyTorch end-to-end caption 생성 확인
+- Q4 모델 10개 파일 업로드
 - 파일별 SHA-256 manifest 생성
 - 두 개 대형 safetensors multipart 업로드 완료
 - incomplete multipart upload 0개
@@ -1037,6 +1041,8 @@ xcodebuild \
 - S3 직접 익명 접근 HTTP 403
 - iOS 앱 CDN endpoint 주입
 - iOS Simulator 빌드 성공
+- Generic iPhoneOS arm64 signed build 성공
+- 실제 iPhone에서 mixed Q4 모델 기반 앱 실행 확인
 
 현재 파이프라인은 다음 상태다.
 
