@@ -26,5 +26,6 @@ The sample image's full greedy token sequence and caption match the independent
 PyTorch reference.
 
 - [MLX Swift 전환 기록](docs/mlx-swift-progress.md)
+- [S3 + CloudFront 모델 배포 및 iOS 설치](docs/model-distribution-aws.md)
 - [Conversion details](tools/conversion/README.md)
 - [Validation and execution](tools/swift-validation/README.md)
