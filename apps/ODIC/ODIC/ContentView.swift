@@ -42,12 +42,12 @@ struct ContentView: View {
             CameraPreview(session: camera.session).ignoresSafeArea()
 
             if camera.permissionDenied {
-                cameraMessage(icon: "camera.fill", title: "카메라 접근이 필요해요", message: "설정에서 ODIC의 카메라 접근을 허용해 주세요.")
+                cameraMessage(icon: "camera.fill", title: L10n.cameraPermissionTitle, message: L10n.cameraPermissionMessage)
             } else if camera.isUnavailable {
                 #if targetEnvironment(simulator)
-                cameraMessage(icon: "photo.fill", title: "샘플 이미지 모드", message: "말풍선 버튼을 누르면 샘플 이미지로 캡션을 생성합니다.")
+                cameraMessage(icon: "photo.fill", title: L10n.sampleModeTitle, message: L10n.sampleModeMessage)
                 #else
-                cameraMessage(icon: "camera.slash.fill", title: "카메라를 사용할 수 없어요", message: "실제 iPhone에서 다시 시도해 주세요.")
+                cameraMessage(icon: "camera.slash.fill", title: L10n.cameraUnavailableTitle, message: L10n.cameraUnavailableMessage)
                 #endif
             }
 
@@ -80,7 +80,7 @@ struct ContentView: View {
                         .symbolEffect(.pulse, isActive: isInstallingModel)
 
                     VStack(spacing: 8) {
-                        Text(isCheckingModel ? "모델 확인 중" : "온디바이스 모델 준비")
+                        Text(isCheckingModel ? L10n.checkingModelTitle : L10n.prepareModelTitle)
                             .font(.title2.bold())
                         Text(setupDescription)
                             .font(.subheadline)
@@ -129,7 +129,7 @@ struct ContentView: View {
 
                 Spacer()
 
-                Label("다운로드 중에는 카메라를 사용하지 않아요", systemImage: "camera.fill")
+                Label(L10n.noCameraDuringDownload, systemImage: "camera.fill")
                     .font(.caption)
                     .foregroundStyle(.white.opacity(0.55))
                     .padding(.bottom, 24)
@@ -141,7 +141,7 @@ struct ContentView: View {
     private var setupButton: some View {
         if isInstallingModel {
             Button(role: .cancel) { cancelInstallation() } label: {
-                Label("다운로드 취소", systemImage: "xmark.circle.fill")
+                Label(L10n.cancelDownload, systemImage: "xmark.circle.fill")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
@@ -149,7 +149,7 @@ struct ContentView: View {
         } else {
             Button { modelDownloadSize == nil ? retryModelCheck() : installModel() } label: {
                 Label(
-                    modelDownloadSize == nil ? "다시 확인" : "모델 다운로드",
+                    modelDownloadSize == nil ? L10n.retry : L10n.downloadModel,
                     systemImage: modelDownloadSize == nil ? "arrow.clockwise" : "icloud.and.arrow.down.fill"
                 )
                 .fontWeight(.semibold)
@@ -162,11 +162,11 @@ struct ContentView: View {
     }
 
     private var setupDescription: String {
-        if isCheckingModel { return "설치된 모델과 최신 버전을 확인하고 있어요." }
+        if isCheckingModel { return L10n.checkingInstalledModel }
         if let modelDownloadSize {
-            return "이미지 설명은 기기 안에서 처리됩니다.\n한 번만 모델을 내려받아 주세요 (\(modelDownloadSize))."
+            return L10n.modelDownloadDescription(size: modelDownloadSize)
         }
-        return "이미지 설명에 필요한 모델 정보를 불러오지 못했어요."
+        return L10n.modelInfoUnavailable
     }
 
     private var downloadProgressText: String {
@@ -216,7 +216,7 @@ struct ContentView: View {
         camera.stop()
         isInstallingModel = true
         errorMessage = nil
-        modelStatus = "모델 다운로드를 준비하고 있어요…"
+        modelStatus = L10n.preparingDownload
         modelProgress = 0
         downloadedBytes = 0
 
@@ -240,7 +240,7 @@ struct ContentView: View {
                 if scenePhase == .active { await camera.start() }
             } catch is CancellationError {
                 modelStatus = nil
-                errorMessage = "다운로드를 취소했어요."
+                errorMessage = L10n.downloadCancelled
                 isInstallingModel = false
                 installationTask = nil
             } catch {
@@ -253,7 +253,7 @@ struct ContentView: View {
     }
 
     private func cancelInstallation() {
-        modelStatus = "다운로드를 취소하고 있어요…"
+        modelStatus = L10n.cancellingDownload
         installationTask?.cancel()
     }
 
@@ -267,7 +267,7 @@ struct ContentView: View {
             Image(systemName: "lock.shield.fill")
                 .font(.system(size: 16, weight: .semibold))
                 .padding(10).background(.ultraThinMaterial, in: Circle())
-                .accessibilityLabel("온디바이스 처리")
+                .accessibilityLabel(L10n.onDeviceProcessing)
         }
         .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 18)
         .background(LinearGradient(colors: [.black.opacity(0.75), .clear], startPoint: .top, endPoint: .bottom).ignoresSafeArea(edges: .top))
@@ -291,16 +291,16 @@ struct ContentView: View {
                 }
             }
             .buttonStyle(.plain).disabled(isCaptioning)
-            .accessibilityLabel("이미지 캡션 생성")
+            .accessibilityLabel(L10n.generateCaption)
         }
         .frame(maxWidth: .infinity).padding(.top, 18).padding(.bottom, 18)
         .background(.black.opacity(0.72))
     }
 
     private var captionStatusText: String {
-        if isCaptioning { return "장면을 설명하고 있어요…" }
+        if isCaptioning { return L10n.describingScene }
         if let errorMessage { return errorMessage }
-        return "버튼을 눌러 장면을 설명해 보세요"
+        return L10n.captionPrompt
     }
 
     private func resultBubble(_ text: String) -> some View {

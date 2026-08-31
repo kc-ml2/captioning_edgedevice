@@ -109,8 +109,8 @@ private enum CameraError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .notReady: "카메라가 아직 준비되지 않았어요."
-        case .captureFailed: "사진을 캡처하지 못했어요."
+        case .notReady: L10n.cameraNotReady
+        case .captureFailed: L10n.photoCaptureFailed
         }
     }
 }

@@ -32,17 +32,17 @@ enum ModelInstallError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .endpointMissing:
-            "모델 다운로드 주소가 설정되지 않았어요."
+            L10n.endpointMissing
         case .invalidResponse:
-            "모델 서버의 응답이 올바르지 않아요."
+            L10n.invalidServerResponse
         case .unsupportedManifest:
-            "지원하지 않는 모델 manifest예요."
+            L10n.unsupportedManifest
         case .unsafePath(let path):
-            "안전하지 않은 모델 파일 경로예요: \(path)"
+            L10n.unsafePath(path)
         case .invalidFile(let path):
-            "다운로드한 모델 파일이 손상되었어요: \(path)"
+            L10n.invalidFile(path)
         case .insufficientStorage(let required, let available):
-            "저장 공간이 부족해요. 필요: \(Self.size(required)), 사용 가능: \(Self.size(available))"
+            L10n.insufficientStorage(required: Self.size(required), available: Self.size(available))
         }
     }
 
@@ -100,14 +100,14 @@ actor ModelStore {
     }
 
     func installLatest(progress: @escaping @Sendable (Progress) async -> Void) async throws {
-        await progress(.init(message: "최신 모델을 확인하고 있어요…", completedBytes: 0, totalBytes: 0))
+        await progress(.init(message: L10n.checkingLatestModel, completedBytes: 0, totalBytes: 0))
         let (manifestURL, manifest) = try await latestManifest()
 
         let installed = try installedDirectory()
         if let current = try? Data(contentsOf: installed.appending(path: "installed-manifest.json")),
            let currentManifest = try? decoder.decode(ModelManifest.self, from: current),
            currentManifest.version == manifest.version {
-            await progress(.init(message: "모델이 준비되었어요.", completedBytes: manifest.totalSize, totalBytes: manifest.totalSize))
+            await progress(.init(message: L10n.modelReady, completedBytes: manifest.totalSize, totalBytes: manifest.totalSize))
             return
         }
 
@@ -130,7 +130,7 @@ actor ModelStore {
 
                 let filename = relative.last ?? file.path
                 await progress(.init(
-                    message: "모델을 받고 있어요: \(filename)",
+                    message: L10n.downloadingFile(filename),
                     completedBytes: completed,
                     totalBytes: manifest.totalSize
                 ))
@@ -141,7 +141,7 @@ actor ModelStore {
                     totalModelBytes: manifest.totalSize
                 ) { downloaded, total in
                     await progress(.init(
-                        message: "모델을 받고 있어요: \(filename)",
+                        message: L10n.downloadingFile(filename),
                         completedBytes: downloaded,
                         totalBytes: total
                     ))
@@ -149,7 +149,7 @@ actor ModelStore {
                 try await downloader.start()
                 try Task.checkCancellation()
                 await progress(.init(
-                    message: "파일을 확인하고 있어요: \(filename)",
+                    message: L10n.verifyingFile(filename),
                     completedBytes: completed + file.size,
                     totalBytes: manifest.totalSize
                 ))
@@ -160,7 +160,7 @@ actor ModelStore {
             let manifestData = try JSONEncoder().encode(EncodableManifest(manifest))
             try manifestData.write(to: staging.appending(path: "installed-manifest.json"), options: .atomic)
             try activate(staging: staging, installed: installed)
-            await progress(.init(message: "모델 설치가 완료됐어요.", completedBytes: manifest.totalSize, totalBytes: manifest.totalSize))
+            await progress(.init(message: L10n.installationComplete, completedBytes: manifest.totalSize, totalBytes: manifest.totalSize))
         } catch {
             try? fileManager.removeItem(at: staging)
             throw error

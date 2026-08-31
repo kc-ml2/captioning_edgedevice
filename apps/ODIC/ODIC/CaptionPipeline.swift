@@ -14,13 +14,13 @@ actor CaptionPipeline {
         var errorDescription: String? {
             switch self {
             case .modelNotInstalled:
-                "MobileVLM 모델을 찾지 못했어요."
+                L10n.modelNotInstalled
             case .invalidFrame:
-                "카메라 프레임을 읽지 못했어요."
+                L10n.invalidCameraFrame
             case .missingWeight(let name):
-                "모델 가중치가 없어요: \(name)"
+                L10n.missingWeight(name)
             case .unsupportedModel(let reason):
-                "지원하지 않는 모델이에요: \(reason)"
+                L10n.unsupportedModel(reason)
             }
         }
     }
@@ -55,7 +55,7 @@ actor CaptionPipeline {
             throw PipelineError.modelNotInstalled
         }
 
-        await progress?("이미지를 살펴보고 있어요…")
+        await progress?(L10n.inspectingImage)
         let ids = try tokenIDs(tokenizer, question: question)
         guard let imagePosition = ids.firstIndex(of: imageToken) else {
             throw PipelineError.invalidFrame
@@ -71,7 +71,7 @@ actor CaptionPipeline {
             .expandedDimensions(axis: 0)
         var caches: [Cache] = []
 
-        await progress?("장면을 이해하고 있어요…")
+        await progress?(L10n.understandingScene)
         let prefillLength = hidden.shape[1]
         for layer in 0..<languageLayers {
             let result = try languageLayer(
@@ -86,7 +86,7 @@ actor CaptionPipeline {
             eval(hidden)
         }
 
-        await progress?("설명을 만들고 있어요…")
+        await progress?(L10n.creatingDescription)
         var generated: [Int] = []
         for _ in 0..<40 {
             let normalized = rmsNorm(
@@ -126,7 +126,7 @@ actor CaptionPipeline {
             throw PipelineError.modelNotInstalled
         }
 
-        await progress?("모델을 불러오고 있어요…")
+        await progress?(L10n.loadingModel)
         Memory.cacheLimit = 20 * 1024 * 1024
         try validateModelConfiguration(directory)
         let indexURL = directory.appending(path: "model.safetensors.index.json")
@@ -199,7 +199,7 @@ actor CaptionPipeline {
               quantization["bits"] as? Int == quantizationBits,
               quantization["group_size"] as? Int == quantizationGroupSize,
               quantization["mode"] as? String == "affine" else {
-            throw PipelineError.unsupportedModel("iPhone에서는 MLX 4-bit 모델이 필요합니다.")
+            throw PipelineError.unsupportedModel(L10n.fourBitModelRequired)
         }
     }
 
