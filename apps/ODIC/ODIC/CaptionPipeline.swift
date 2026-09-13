@@ -50,7 +50,14 @@ actor CaptionPipeline {
             throw PipelineError.invalidFrame
         }
 
+        let benchmarkEnabled = TelemetryConfiguration.internalBenchmarkingEnabled
+        let cold = weights == nil || tokenizer == nil
+        let loadStart = ProcessInfo.processInfo.systemUptime
         try await loadIfNeeded(progress: progress)
+        let loadMilliseconds = (ProcessInfo.processInfo.systemUptime - loadStart) * 1000
+        let captionStart = ProcessInfo.processInfo.systemUptime
+        let memorySampler = benchmarkEnabled ? BenchmarkMemorySampler() : nil
+        defer { _ = memorySampler?.stop() }
         guard let weights, let tokenizer else {
             throw PipelineError.modelNotInstalled
         }
@@ -87,6 +94,9 @@ actor CaptionPipeline {
         }
 
         await progress?(L10n.creatingDescription)
+        let generationStart = ProcessInfo.processInfo.systemUptime
+        var firstTokenTime: Double?
+        var lastTokenTime = generationStart
         var generated: [Int] = []
         for _ in 0..<40 {
             let normalized = rmsNorm(
@@ -95,8 +105,10 @@ actor CaptionPipeline {
             )
             let logits = try linear(normalized, weights, "lm_head.weight")[0, hidden.shape[1] - 1]
             let token = Int(logits.argMax().item(Int32.self))
+            lastTokenTime = ProcessInfo.processInfo.systemUptime
+            if firstTokenTime == nil { firstTokenTime = lastTokenTime }
             generated.append(token)
-            if token == 2 { break }
+            if token == 2 || generated.count == 40 { break }
 
             hidden = try embed([token], weights).reshaped(1, 1, hiddenSize)
             for layer in 0..<languageLayers {
@@ -113,9 +125,39 @@ actor CaptionPipeline {
             }
         }
 
-        return try tokenizer.decode(generated.map { $0 + 1 })
+        let output = try tokenizer.decode(generated.map { $0 + 1 })
             .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
             .trimmingCharacters(in: .whitespacesAndNewlines)
+        if benchmarkEnabled {
+            let latency = (ProcessInfo.processInfo.systemUptime - captionStart) * 1000
+            let generationSeconds = lastTokenTime - generationStart
+            let tokenCount = generated.filter { $0 != 2 }.count
+            let thermal: String
+            switch ProcessInfo.processInfo.thermalState {
+            case .nominal: thermal = "nominal"
+            case .fair: thermal = "fair"
+            case .serious: thermal = "serious"
+            case .critical: thermal = "critical"
+            @unknown default: thermal = "unknown"
+            }
+            var modelVersion = "unknown"
+            if let directory = modelDirectory,
+               let data = try? Data(contentsOf: directory.appending(path: "installed-manifest.json")),
+               let manifest = try? JSONDecoder().decode(ModelManifest.self, from: data) {
+                modelVersion = manifest.version
+            }
+            let event = BenchmarkEvent(metrics: CaptionBenchmark(
+                is_cold_run: cold, cold_load_ms: cold ? loadMilliseconds : nil,
+                caption_latency_ms: latency,
+                time_to_first_token_ms: firstTokenTime.map { ($0 - captionStart) * 1000 },
+                generation_ms: generationSeconds * 1000, generated_tokens: tokenCount,
+                tokens_per_second: generationSeconds > 0 ? Double(tokenCount) / generationSeconds : nil,
+                peak_sampled_memory_bytes: memorySampler?.stop() ?? 0,
+                output_characters: output.count, thermal_state: thermal
+            ), modelVersion: modelVersion)
+            Task { await BenchmarkTelemetry.shared.record(event) }
+        }
+        return output
     }
 
     private func loadIfNeeded(
