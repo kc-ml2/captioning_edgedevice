@@ -318,6 +318,8 @@ private final class ModelFileDownloader: NSObject, URLSessionDownloadDelegate, @
                 let configuration = URLSessionConfiguration.default
                 configuration.waitsForConnectivity = true
                 configuration.allowsConstrainedNetworkAccess = true
+                // Allow longer stalls on slow networks; this is separate from the total download limit.
+                configuration.timeoutIntervalForRequest = 60 * 5
                 configuration.timeoutIntervalForResource = 60 * 60 * 6
                 let session = URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
                 self.session = session
