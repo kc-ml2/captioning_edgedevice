@@ -221,6 +221,7 @@ struct ContentView: View {
         downloadedBytes = 0
 
         installationTask = Task {
+            let startedAt = ProcessInfo.processInfo.systemUptime
             do {
                 try await modelStore.installLatest { progress in
                     await MainActor.run {
@@ -244,6 +245,11 @@ struct ContentView: View {
                 isInstallingModel = false
                 installationTask = nil
             } catch {
+                if !Task.isCancelled {
+                    await BenchmarkTelemetry.recordFailure(error, kind: "download_failure",
+                        startedAt: startedAt, appState: telemetryAppState,
+                        downloadedBytes: downloadedBytes)
+                }
                 modelStatus = nil
                 errorMessage = error.localizedDescription
                 isInstallingModel = false
@@ -313,14 +319,26 @@ struct ContentView: View {
             .transition(.move(edge: .bottom).combined(with: .opacity))
     }
 
+    private var telemetryAppState: String {
+        switch scenePhase {
+        case .active: "active"
+        case .inactive: "inactive"
+        case .background: "background"
+        @unknown default: "unknown"
+        }
+    }
+
     private func generateCaption() {
         isCaptioning = true
         caption = nil
         errorMessage = nil
 
         Task {
+            let startedAt = ProcessInfo.processInfo.systemUptime
+            var stage = "capture"
             do {
                 let frame = try await camera.captureFrame()
+                stage = "inference"
                 let generated = try await pipeline.caption(image: frame) { status in
                     await MainActor.run { errorMessage = status }
                 }
@@ -329,6 +347,8 @@ struct ContentView: View {
                     errorMessage = nil
                 }
             } catch {
+                await BenchmarkTelemetry.recordFailure(error, kind: "caption_failure",
+                    startedAt: startedAt, appState: telemetryAppState, stage: stage)
                 errorMessage = error.localizedDescription
             }
             isCaptioning = false
