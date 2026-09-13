@@ -1,7 +1,17 @@
 # SceneSense telemetry 수집 서버
 
 FastAPI + PostgreSQL 17. 조회/내보내기 API 없이 이벤트를 저장합니다.
-앱 계측·전송·동의 UI는 아직 연결되지 않았습니다.
+앱의 성공한 캡션 벤치마크 계측과 자동 전송을 연결했습니다. 내부 테스트용으로 별도 동의 UI는 없습니다.
+캡션 실패(프레임 캡처/추론)와 모델 다운로드·설치 실패도 전송합니다.
+사용자 취소(CancellationError 및 URLSession 취소)는 제외하며 앱 실행 이벤트는 없습니다.
+오류 원문 대신 allowlist 오류 분류·숫자 코드·경과 시간·앱 상태만 저장합니다.
+다운로드 실패에는 받은 바이트 수, 캡션 실패에는 capture/inference 단계가 추가됩니다.
+실패 이벤트의 model_version은 현재 설치된 버전이며 설치 전에는 unknown입니다.
+크래시·OS 강제 종료는 catch할 수 없으므로 이 수집 범위에 포함되지 않습니다.
+
+**앱 업데이트 전에 서버를 재배포하세요:**
+`docker compose up -d --build`. 새 caption_failure 타입 및 download_failure의 error_category 필드를
+이전 서버는 422로 거부합니다. 테이블은 JSONB라 이번 변경에 DB 마이그레이션은 필요하지 않습니다.
 
 ## 실행
 
@@ -82,7 +92,9 @@ curl --fail-with-body http://127.0.0.1:8000/v1/events/batch \
 ```
 
 전체 필드 정의는 `app/main.py`를 참고하세요.
-caption_benchmark는 성공한 캡션 결과용입니다. 캡션 실패 이벤트는 아직 정의하지 않았습니다.
+caption_benchmark는 성공한 캡션 결과용입니다.
+caption_failure는 metrics 대신 `caption_failure` 객체로 elapsed_ms, error_code,
+error_category(network/cocoa/posix/application), app_state, stage(capture/inference)를 보냅니다.
 
 ## 측정 의미 (앱 구현 시 준수)
 
@@ -102,7 +114,17 @@ caption_benchmark는 성공한 캡션 결과용입니다. 캡션 실패 이벤�
 현재 로컬 환경에는 서버 `.env`의 `INGEST_API_KEY`와 동일한 키를
 `apps/ODIC/ODIC/TelemetrySecrets.plist`에 생성했습니다. 두 파일 모두 Git에서 제외됩니다.
 앱에서는 `TelemetryConfiguration.ingestAPIKey`로 읽습니다. 키가 없으면 nil을 반환합니다.
-다른 개발 머신/CI에는 이 파일을 별도로 제공해야 합니다. 실제 전송은 아직 구현되지 않았습니다.
+다른 개발 머신/CI에는 이 파일을 별도로 제공해야 합니다.
+`TelemetrySecrets.plist`의 Boolean `InternalBenchmarkingEnabled`가 true인 경우만 계측·전송합니다.
+현재 로컬 내부 테스트 설정은 true입니다. 외부 배포 전 false로 바꾸거나 파일을 제외하세요.
+전송 주소는 `https://scenesense.ml2-alpha.com/v1/events/batch`입니다.
+로컬 `Application Support/benchmark-queue.json`에 최대 500건을 원자적으로 저장하며,
+초과 시 오래된 이벤트부터 삭제합니다. 이 JSON은 전송 대기열이지 영구 벤치마크 기록은 아닙니다.
+서버가 확인한 이벤트는 삭제하며 네트워크/5xx/429 실패는 5초부터 최대 5분 간격으로 재시도합니다.
+앱 실행·포그라운드 복귀 시 재개하며 OS가 앱을 중단한 동안 백그라운드 전송을 보장하지 않습니다.
+서버 인증/스키마 4xx 오류는 해당 전송 루프를 중지합니다.
+메모리는 캡션 구간에 100ms 간격으로 physical footprint를 측정합니다. 모델 로딩 중은 제외합니다.
+로딩 시간은 파일·토크나이저 로딩 구간이며 MLX 지연 평가 비용은 첫 캡션에 포함될 수 있습니다.
 앱 키는 번들에서 추출 가능하므로 운영용 비밀이나 사용자 인증으로 취급하지 마세요.
 키 교체 시 서버 설정과 앱을 함께 갱신해야 합니다.
 
