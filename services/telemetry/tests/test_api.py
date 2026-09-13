@@ -33,6 +33,22 @@ def test_schema():
         Event.model_validate(event)
 
 
+def test_failure_payloads():
+    event = sample()
+    del event["metrics"]
+    details = {"elapsed_ms": 100, "error_code": -1001,
+               "error_category": "network", "app_state": "active"}
+    Event.model_validate(event | {"event_type": "download_failure",
+                                 "download_failure": details | {"downloaded_bytes": 1000}})
+    caption = event | {"event_type": "caption_failure",
+                       "caption_failure": details | {"stage": "inference"}}
+    Event.model_validate(caption)
+    with pytest.raises(ValidationError):
+        Event.model_validate(caption | {"download_failure": details | {"downloaded_bytes": 0}})
+    with pytest.raises(ValidationError):
+        Event.model_validate(caption | {"caption_failure": details | {"stage": "inference", "message": "private"}})
+
+
 def test_auth_and_body_limit():
     app = create_app()
     app.state.ingest_key = "a" * 32

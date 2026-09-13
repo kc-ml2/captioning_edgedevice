@@ -40,7 +40,16 @@ class DownloadFailure(StrictModel):
     error_code: int
     http_status: int | None = Field(default=None, ge=100, le=599)
     retry_count: int = Field(default=0, ge=0)
+    error_category: Literal["network", "cocoa", "posix", "application"] = "application"
     app_state: Literal["active", "inactive", "background", "unknown"]
+
+
+class CaptionFailure(StrictModel):
+    elapsed_ms: float = Field(ge=0)
+    error_code: int
+    error_category: Literal["network", "cocoa", "posix", "application"]
+    app_state: Literal["active", "inactive", "background", "unknown"]
+    stage: Literal["capture", "inference"]
 
 
 ShortString = Annotated[str, Field(min_length=1, max_length=128)]
@@ -49,7 +58,7 @@ ShortString = Annotated[str, Field(min_length=1, max_length=128)]
 class Event(StrictModel):
     schema_version: Literal[1]
     event_id: UUID
-    event_type: Literal["caption_benchmark", "download_failure"]
+    event_type: Literal["caption_benchmark", "download_failure", "caption_failure"]
     timestamp: datetime
     app_version: ShortString
     build_number: ShortString
@@ -58,16 +67,17 @@ class Event(StrictModel):
     model_version: ShortString
     metrics: Metrics | None = None
     download_failure: DownloadFailure | None = None
+    caption_failure: CaptionFailure | None = None
 
     @model_validator(mode="after")
     def validate_payload(self):
         if self.timestamp.utcoffset() is None:
             raise ValueError("timestamp must include a timezone")
-        if self.event_type == "caption_benchmark":
-            if self.metrics is None or self.download_failure is not None:
-                raise ValueError("caption_benchmark requires only metrics")
-        elif self.download_failure is None or self.metrics is not None:
-            raise ValueError("download_failure requires only download_failure")
+        payloads = {"caption_benchmark": self.metrics,
+                    "download_failure": self.download_failure,
+                    "caption_failure": self.caption_failure}
+        if payloads[self.event_type] is None or sum(value is not None for value in payloads.values()) != 1:
+            raise ValueError("event_type must match exactly one payload")
         return self
 
 
