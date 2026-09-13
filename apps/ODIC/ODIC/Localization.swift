@@ -3,7 +3,7 @@ import Foundation
 enum L10n {
     // Camera UI
     static let cameraPermissionTitle = String(localized: "camera.permission.title", defaultValue: "Camera Access Required")
-    static let cameraPermissionMessage = String(localized: "camera.permission.message", defaultValue: "Allow ODIC to access the camera in Settings.")
+    static let cameraPermissionMessage = String(localized: "camera.permission.message", defaultValue: "Allow SceneSense to access the camera in Settings.")
     static let sampleModeTitle = String(localized: "camera.sample_mode.title", defaultValue: "Sample Image Mode")
     static let sampleModeMessage = String(localized: "camera.sample_mode.message", defaultValue: "Tap the speech bubble button to generate a caption from the sample image.")
     static let cameraUnavailableTitle = String(localized: "camera.unavailable.title", defaultValue: "Camera Unavailable")

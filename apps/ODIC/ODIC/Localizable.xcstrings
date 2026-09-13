@@ -1,50 +1,762 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "camera.error.capture_failed" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "사진을 캡처하지 못했어요." } } } },
-    "camera.error.not_ready" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "카메라가 아직 준비되지 않았어요." } } } },
-    "camera.permission.message" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "설정에서 ODIC의 카메라 접근을 허용해 주세요." } } } },
-    "camera.permission.title" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "카메라 접근이 필요해요" } } } },
-    "camera.sample_mode.message" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "말풍선 버튼을 누르면 샘플 이미지로 캡션을 생성합니다." } } } },
-    "camera.sample_mode.title" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "샘플 이미지 모드" } } } },
-    "camera.unavailable.message" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "실제 iPhone에서 다시 시도해 주세요." } } } },
-    "camera.unavailable.title" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "카메라를 사용할 수 없어요" } } } },
-    "caption.generate" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "이미지 캡션 생성" } } } },
-    "caption.on_device_processing" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "온디바이스 처리" } } } },
-    "caption.progress.creating_description" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "설명을 만들고 있어요…" } } } },
-    "caption.progress.inspecting_image" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "이미지를 살펴보고 있어요…" } } } },
-    "caption.progress.loading_model" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "모델을 불러오고 있어요…" } } } },
-    "caption.progress.understanding_scene" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "장면을 이해하고 있어요…" } } } },
-    "caption.status.describing" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "장면을 설명하고 있어요…" } } } },
-    "caption.status.prompt" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "버튼을 눌러 장면을 설명해 보세요" } } } },
-    "model.download.cancelled" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "다운로드를 취소했어요." } } } },
-    "model.download.cancelling" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "다운로드를 취소하고 있어요…" } } } },
-    "model.download.preparing" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "모델 다운로드를 준비하고 있어요…" } } } },
-    "model.error.endpoint_missing" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "모델 다운로드 주소가 설정되지 않았어요." } } } },
-    "model.error.insufficient_storage" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "저장 공간이 부족해요. 필요: %1$@, 사용 가능: %2$@" } } } },
-    "model.error.invalid_file" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "다운로드한 모델 파일이 손상되었어요: %@" } } } },
-    "model.error.invalid_response" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "모델 서버의 응답이 올바르지 않아요." } } } },
-    "model.error.unsafe_path" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "안전하지 않은 모델 파일 경로예요: %@" } } } },
-    "model.error.unsupported_manifest" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "지원하지 않는 모델 manifest예요." } } } },
-    "model.progress.checking_latest" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "최신 모델을 확인하고 있어요…" } } } },
-    "model.progress.downloading_file" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "모델을 받고 있어요: %@" } } } },
-    "model.progress.installation_complete" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "모델 설치가 완료됐어요." } } } },
-    "model.progress.ready" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "모델이 준비되었어요." } } } },
-    "model.progress.verifying_file" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "파일을 확인하고 있어요: %@" } } } },
-    "model.setup.cancel_download" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "다운로드 취소" } } } },
-    "model.setup.checking.description" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "설치된 모델과 최신 버전을 확인하고 있어요." } } } },
-    "model.setup.checking.title" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "모델 확인 중" } } } },
-    "model.setup.download" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "모델 다운로드" } } } },
-    "model.setup.download.description" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "이미지 설명은 기기 안에서 처리됩니다.\n한 번만 모델을 내려받아 주세요 (%@)." } } } },
-    "model.setup.info_unavailable" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "이미지 설명에 필요한 모델 정보를 불러오지 못했어요." } } } },
-    "model.setup.no_camera_during_download" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "다운로드 중에는 카메라를 사용하지 않아요" } } } },
-    "model.setup.prepare.title" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "온디바이스 모델 준비" } } } },
-    "model.setup.retry" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "다시 확인" } } } },
-    "pipeline.error.four_bit_required" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "iPhone에서는 MLX 4-bit 모델이 필요합니다." } } } },
-    "pipeline.error.invalid_frame" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "카메라 프레임을 읽지 못했어요." } } } },
-    "pipeline.error.missing_weight" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "모델 가중치가 없어요: %@" } } } },
-    "pipeline.error.model_not_installed" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "MobileVLM 모델을 찾지 못했어요." } } } },
-    "pipeline.error.unsupported_model" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "지원하지 않는 모델이에요: %@" } } } }
+    "camera.error.capture_failed" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Could not capture the photo."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "사진을 캡처하지 못했어요."
+          }
+        }
+      }
+    },
+    "camera.error.not_ready" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "The camera is not ready yet."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "카메라가 아직 준비되지 않았어요."
+          }
+        }
+      }
+    },
+    "camera.permission.message" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Allow SceneSense to access the camera in Settings."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "설정에서 SceneSense의 카메라 접근을 허용해 주세요."
+          }
+        }
+      }
+    },
+    "camera.permission.title" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Camera Access Required"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "카메라 접근이 필요해요"
+          }
+        }
+      }
+    },
+    "camera.sample_mode.message" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Tap the speech bubble button to generate a caption from the sample image."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "말풍선 버튼을 누르면 샘플 이미지로 캡션을 생성합니다."
+          }
+        }
+      }
+    },
+    "camera.sample_mode.title" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Sample Image Mode"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "샘플 이미지 모드"
+          }
+        }
+      }
+    },
+    "camera.unavailable.message" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Try again on a physical iPhone."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "실제 iPhone에서 다시 시도해 주세요."
+          }
+        }
+      }
+    },
+    "camera.unavailable.title" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Camera Unavailable"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "카메라를 사용할 수 없어요"
+          }
+        }
+      }
+    },
+    "caption.generate" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Generate Image Caption"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "이미지 캡션 생성"
+          }
+        }
+      }
+    },
+    "caption.on_device_processing" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "On-device processing"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "온디바이스 처리"
+          }
+        }
+      }
+    },
+    "caption.progress.creating_description" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Creating a description…"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "설명을 만들고 있어요…"
+          }
+        }
+      }
+    },
+    "caption.progress.inspecting_image" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Inspecting the image…"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "이미지를 살펴보고 있어요…"
+          }
+        }
+      }
+    },
+    "caption.progress.loading_model" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Loading the model…"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "모델을 불러오고 있어요…"
+          }
+        }
+      }
+    },
+    "caption.progress.understanding_scene" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Understanding the scene…"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "장면을 이해하고 있어요…"
+          }
+        }
+      }
+    },
+    "caption.status.describing" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Describing the scene…"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "장면을 설명하고 있어요…"
+          }
+        }
+      }
+    },
+    "caption.status.prompt" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Tap the button to describe the scene"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "버튼을 눌러 장면을 설명해 보세요"
+          }
+        }
+      }
+    },
+    "model.download.cancelled" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "The download was cancelled."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "다운로드를 취소했어요."
+          }
+        }
+      }
+    },
+    "model.download.cancelling" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Cancelling the download…"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "다운로드를 취소하고 있어요…"
+          }
+        }
+      }
+    },
+    "model.download.preparing" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Preparing the model download…"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "모델 다운로드를 준비하고 있어요…"
+          }
+        }
+      }
+    },
+    "model.error.endpoint_missing" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "The model download URL is not configured."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "모델 다운로드 주소가 설정되지 않았어요."
+          }
+        }
+      }
+    },
+    "model.error.insufficient_storage" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Not enough storage. Required: %1$@, available: %2$@"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "저장 공간이 부족해요. 필요: %1$@, 사용 가능: %2$@"
+          }
+        }
+      }
+    },
+    "model.error.invalid_file" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "The downloaded model file is damaged: %@"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "다운로드한 모델 파일이 손상되었어요: %@"
+          }
+        }
+      }
+    },
+    "model.error.invalid_response" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "The model server returned an invalid response."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "모델 서버의 응답이 올바르지 않아요."
+          }
+        }
+      }
+    },
+    "model.error.unsafe_path" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Unsafe model file path: %@"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "안전하지 않은 모델 파일 경로예요: %@"
+          }
+        }
+      }
+    },
+    "model.error.unsupported_manifest" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Unsupported model manifest."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "지원하지 않는 모델 manifest예요."
+          }
+        }
+      }
+    },
+    "model.progress.checking_latest" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Checking the latest model…"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "최신 모델을 확인하고 있어요…"
+          }
+        }
+      }
+    },
+    "model.progress.downloading_file" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Downloading model: %@"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "모델을 받고 있어요: %@"
+          }
+        }
+      }
+    },
+    "model.progress.installation_complete" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Model installation is complete."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "모델 설치가 완료됐어요."
+          }
+        }
+      }
+    },
+    "model.progress.ready" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "The model is ready."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "모델이 준비되었어요."
+          }
+        }
+      }
+    },
+    "model.progress.verifying_file" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Verifying file: %@"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "파일을 확인하고 있어요: %@"
+          }
+        }
+      }
+    },
+    "model.setup.cancel_download" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Cancel Download"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "다운로드 취소"
+          }
+        }
+      }
+    },
+    "model.setup.checking.description" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Checking the installed model and latest version."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "설치된 모델과 최신 버전을 확인하고 있어요."
+          }
+        }
+      }
+    },
+    "model.setup.checking.title" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Checking Model"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "모델 확인 중"
+          }
+        }
+      }
+    },
+    "model.setup.download" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Download Model"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "모델 다운로드"
+          }
+        }
+      }
+    },
+    "model.setup.download.description" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Image descriptions are processed on your device.\nDownload the model once (%@)."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "이미지 설명은 기기 안에서 처리됩니다.\n한 번만 모델을 내려받아 주세요 (%@)."
+          }
+        }
+      }
+    },
+    "model.setup.info_unavailable" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Could not load the model information required for image descriptions."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "이미지 설명에 필요한 모델 정보를 불러오지 못했어요."
+          }
+        }
+      }
+    },
+    "model.setup.no_camera_during_download" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "The camera is not used while downloading"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "다운로드 중에는 카메라를 사용하지 않아요"
+          }
+        }
+      }
+    },
+    "model.setup.prepare.title" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Prepare On-Device Model"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "온디바이스 모델 준비"
+          }
+        }
+      }
+    },
+    "model.setup.retry" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Try Again"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "다시 확인"
+          }
+        }
+      }
+    },
+    "ODIC" : {
+      "comment" : "The name of the app.",
+      "isCommentAutoGenerated" : true
+    },
+    "On-Device Image Captioning" : {
+      "comment" : "A description of the app.",
+      "isCommentAutoGenerated" : true
+    },
+    "pipeline.error.four_bit_required" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "An MLX 4-bit model is required on iPhone."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "iPhone에서는 MLX 4-bit 모델이 필요합니다."
+          }
+        }
+      }
+    },
+    "pipeline.error.invalid_frame" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Could not read the camera frame."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "카메라 프레임을 읽지 못했어요."
+          }
+        }
+      }
+    },
+    "pipeline.error.missing_weight" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Missing model weight: %@"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "모델 가중치가 없어요: %@"
+          }
+        }
+      }
+    },
+    "pipeline.error.model_not_installed" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Could not find the MobileVLM model."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "MobileVLM 모델을 찾지 못했어요."
+          }
+        }
+      }
+    },
+    "pipeline.error.unsupported_model" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Unsupported model: %@"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "지원하지 않는 모델이에요: %@"
+          }
+        }
+      }
+    }
   },
-  "version" : "1.0"
+  "version" : "1.1"
 }

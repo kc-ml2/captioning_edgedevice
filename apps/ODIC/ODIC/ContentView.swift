@@ -260,7 +260,7 @@ struct ContentView: View {
     private var topBar: some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text("ODIC").font(.headline.weight(.bold))
+                Text(verbatim: "SceneSense").font(.headline.weight(.bold))
                 Text("On-Device Image Captioning").font(.caption2).foregroundStyle(.white.opacity(0.7))
             }
             Spacer()
