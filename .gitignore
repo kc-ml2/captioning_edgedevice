@@ -35,6 +35,9 @@ xcuserdata/
 .vscode/
 *.swp
 
+# Internal telemetry credentials (bundled locally, never committed)
+/apps/ODIC/ODIC/TelemetrySecrets.plist
+
 # Local environment
 .env
 .env.*
