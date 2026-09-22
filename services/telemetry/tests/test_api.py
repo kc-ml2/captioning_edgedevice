@@ -17,7 +17,7 @@ def sample():
         "metrics": {"is_cold_run": False, "caption_latency_ms": 2450,
                     "generated_tokens": 28, "tokens_per_second": 20.74,
                     "peak_sampled_memory_bytes": 2100000000,
-                    "output_characters": 96, "thermal_state": "nominal"},
+                    "output_words": 18, "thermal_state": "nominal"},
     }
 
 
@@ -29,6 +29,31 @@ def test_schema():
             Event.model_validate(sample() | change)
     event = sample()
     event["metrics"]["tokens_per_second"] = float("nan")
+    with pytest.raises(ValidationError):
+        Event.model_validate(event)
+
+
+@pytest.mark.parametrize("lengths", [
+    {"output_words": 0}, {"output_words": 18}, {"output_characters": 96},
+    {"output_words": 18, "output_characters": 96},
+])
+def test_output_length_compatibility(lengths):
+    event = sample()
+    del event["metrics"]["output_words"]
+    event["metrics"].update(lengths)
+    stored = Event.model_validate(event).model_dump(exclude_none=True)
+    for field in ("output_words", "output_characters"):
+        assert stored["metrics"].get(field) == lengths.get(field)
+
+
+@pytest.mark.parametrize("lengths", [
+    {}, {"output_words": None}, {"output_words": -1},
+    {"output_characters": -1}, {"output_words": 18, "output_characters": -1},
+])
+def test_invalid_output_lengths(lengths):
+    event = sample()
+    del event["metrics"]["output_words"]
+    event["metrics"].update(lengths)
     with pytest.raises(ValidationError):
         Event.model_validate(event)
 

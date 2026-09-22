@@ -30,8 +30,16 @@ class Metrics(StrictModel):
     generated_tokens: int = Field(ge=0)
     tokens_per_second: float | None = Field(default=None, ge=0)
     peak_sampled_memory_bytes: int = Field(ge=0)
-    output_characters: int = Field(ge=0)
+    output_words: int | None = Field(default=None, ge=0)
+    # Legacy clients and persisted queues still send character counts.
+    output_characters: int | None = Field(default=None, ge=0)
     thermal_state: Literal["nominal", "fair", "serious", "critical", "unknown"]
+
+    @model_validator(mode="after")
+    def validate_output_length(self):
+        if self.output_words is None and self.output_characters is None:
+            raise ValueError("output_words or legacy output_characters is required")
+        return self
 
 
 class DownloadFailure(StrictModel):

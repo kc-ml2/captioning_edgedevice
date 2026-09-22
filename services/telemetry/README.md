@@ -70,7 +70,7 @@ curl --fail-with-body http://127.0.0.1:8000/v1/events/batch \
       "is_cold_run":false,"caption_latency_ms":2450,
       "time_to_first_token_ms":1100,"generation_ms":1350,
       "generated_tokens":28,"tokens_per_second":20.74,
-      "peak_sampled_memory_bytes":2100000000,"output_characters":96,
+      "peak_sampled_memory_bytes":2100000000,"output_words":18,
       "thermal_state":"nominal"
     }
   }]}'
@@ -107,7 +107,10 @@ error_category(network/cocoa/posix/application), app_state, stage(capture/infere
 - tokens_per_second: generated_tokens / (generation_ms / 1000). 구간이 0이면 null.
 - peak_sampled_memory_bytes: 캡션 실행 구간의 프로세스 메모리 샘플 최대값.
   실제 순간 최대값이나 MLX 할당량과 동일하지 않습니다.
-- output_characters: 최종 출력 Swift String.count (grapheme clusters).
+- output_words: 최종 출력을 Swift `Character.isWhitespace` 기준으로 분리한 비어 있지 않은 구간 수. 공백·탭·줄바꿈을 구분자로 사용하며 연속 공백은 무시한다. 구두점은 별도로 분리하지 않는다(예: `it's`, `red-and-white`는 각각 1개). 언어학적 단어 수가 아닌 영어 캡션의 간단한 분량 지표다.
+- output_characters: 구버전 호환용 선택 필드. 이전 앱과 로컬 큐의 문자 수를 그대로 보존하며 단어 수로 변환하지 않는다. 새 앱은 `output_words`만 전송한다. 두 필드 중 적어도 하나는 필요하다.
+
+배포 시 서버를 먼저 업데이트한 뒤 앱을 배포한다. 기존 서버는 알 수 없는 `output_words`를 거부한다. 스키마 버전은 1을 유지하며 기존 JSONB 데이터는 수정하지 않는다. 분석 시 구버전 이벤트의 누락된 단어 수를 0으로 취급하지 않는다.
 
 ## 내부 테스트용 로컬 키
 
