@@ -1,4 +1,4 @@
-"""Write-only telemetry API. Never accept images, captions, or arbitrary logs."""
+"""Telemetry ingestion and protected dashboard. Never accept images or captions."""
 import hmac
 import os
 from contextlib import asynccontextmanager
@@ -180,6 +180,8 @@ def create_app() -> FastAPI:
     app = FastAPI(title="SceneSense telemetry", lifespan=lifespan,
                   docs_url=None, redoc_url=None, openapi_url=None)
     app.add_middleware(BodyLimitMiddleware)
+    from app.dashboard import make_router
+    app.include_router(make_router(StoredEvent))
 
     async def authenticate(request: Request, x_ingest_key: str = Header(default="")):
         if not hmac.compare_digest(x_ingest_key.encode(), request.app.state.ingest_key.encode()):

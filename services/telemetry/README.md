@@ -1,6 +1,6 @@
 # SceneSense telemetry 수집 서버
 
-FastAPI + PostgreSQL 17. 조회/내보내기 API 없이 이벤트를 저장합니다.
+FastAPI + PostgreSQL 17. 이벤트 수집과 비밀번호로 보호된 내부용 대시보드를 제공합니다.
 앱의 성공한 캡션 벤치마크 계측과 자동 전송을 연결했습니다. 내부 테스트용으로 별도 동의 UI는 없습니다.
 캡션 실패(프레임 캡처/추론)와 모델 다운로드·설치 실패도 전송합니다.
 사용자 취소(CancellationError 및 URLSession 취소)는 제외하며 앱 실행 이벤트는 없습니다.
@@ -48,8 +48,7 @@ HTTP로 수집 키를 인터넷에 노출하지 마세요. 앱 ATS 예외를 추
 
 `POST /v1/events/batch`, 헤더 `X-Ingest-Key: <INGEST_API_KEY>`.
 고정 키는 소규모 TestFlight용 최소 인증입니다. 앱 내 키는 추출 가능하며 사용자 인증이나
-정상 앱 검증을 보장하지 않습니다. 키를 git에 커밋하지 마세요. 서버에는 수집 API만 있고
-조회 API는 없습니다. 헬스 체크만 인증 없이 접근 가능합니다.
+정상 앱 검증을 보장하지 않습니다. 키를 git에 커밋하지 마세요. 앱 수집 키로는 관리자 대시보드에 접근할 수 없습니다. 헬스 체크만 인증 없이 접근 가능합니다.
 
 최대 100개 이벤트, 요청 본문 최대 256 KiB. 정의되지 않은 필드는 거부합니다.
 
@@ -234,3 +233,27 @@ PostgreSQL 통합 테스트는 실행 중인 Compose의 일회성 API 컨테이�
 docker compose run --rm --user root -v "$PWD/tests:/service/tests:ro" api \
   sh -c 'pip install pytest httpx && python -m pytest -q'
 ```
+
+## 내부용 대시보드
+
+`.env`에 수집 키와 다른 충분히 긴 `DASHBOARD_PASSWORD`를 설정하고
+`docker compose up -d --build`로 반영합니다. 미설정 시 대시보드는 503으로 차단됩니다.
+비밀번호를 Git에 커밋하지 마세요.
+
+- 주소: `https://<서비스 도메인>/admin/` (호스트 직접 접속: `http://127.0.0.1:8003/admin/`)
+- 브라우저 Basic Auth 로그인: 사용자 이름 `admin`, 비밀번호 `DASHBOARD_PASSWORD`
+- nginx가 `/admin/` 및 하위 경로도 API로 전달해야 합니다. 외부 접근은 HTTPS 필수입니다.
+- 날짜 필터는 **서버 수신 시각 UTC** 기준이며 시작일/종료일을 모두 포함합니다.
+- 이벤트 종류, 앱 버전, 기기 모델, 모델 버전은 드롭다운으로 선택합니다.
+  선택지는 날짜/다른 필터와 무관하게 저장된 실제 데이터의 고유 값으로 구성하며, `전체`로 해제합니다.
+- `connectivity-test`는 표·다운로드·드롭다운 선택지에서 항상 제외합니다. DB 원본은 유지합니다.
+- 최신순 50건 페이지 조회, 각 이벤트 원본 JSON 상세 보기.
+- CSV/JSONL 다운로드는 현재 필터 전체에 적용됩니다. 최대 10,000건이며 초과 시
+  일부만 내보내지 않고 413을 반환합니다. 날짜 범위 등을 좁혀 주세요.
+- CSV는 중첩 필드를 점 표기법으로 평탄화하고 UTF-8 BOM을 포함합니다.
+  수식으로 해석될 수 있는 문자열에는 작은따옴표를 붙입니다.
+- JSONL은 각 줄에 `received_at`과 원본 `payload`를 저장합니다.
+- 조회는 기존 DB 연결을 사용하되 read-only 트랜잭션과 30초 SQL 타임아웃을 적용합니다.
+  별도 읽기 전용 DB 계정 연결은 현재 구현하지 않았습니다.
+- Basic Auth는 브라우저가 자격 증명을 기억할 수 있습니다. 공용 기기에서는 사용하지 마세요.
+  nginx에서 로그인 시도 rate limiting을 적용하는 것을 권장합니다.
