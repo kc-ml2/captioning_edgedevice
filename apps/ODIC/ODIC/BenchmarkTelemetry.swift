@@ -40,6 +40,96 @@ nonisolated final class BenchmarkMemorySampler: @unchecked Sendable {
     deinit { timer.cancel() }
 }
 
+/// Per-caption measurements, owned by the pipeline's current invocation.
+/// Loading is excluded from caption latency and memory sampling. EOS contributes
+/// to token timing, but not to the generated-token count.
+nonisolated struct CaptionBenchmarkSession {
+    private let isColdRun: Bool
+    private let loadStart: Double
+    private var loadMilliseconds: Double = 0
+    private var captionStart: Double = 0
+    private var generationStart: Double = 0
+    private var firstTokenTime: Double?
+    private var lastTokenTime: Double = 0
+    private var tokenCount = 0
+    private var memorySampler: BenchmarkMemorySampler?
+
+    init?(isColdRun: Bool) {
+        guard TelemetryConfiguration.internalBenchmarkingEnabled else { return nil }
+        self.isColdRun = isColdRun
+        loadStart = ProcessInfo.processInfo.systemUptime
+    }
+
+    mutating func modelLoaded() {
+        loadMilliseconds = (ProcessInfo.processInfo.systemUptime - loadStart) * 1000
+        captionStart = ProcessInfo.processInfo.systemUptime
+        memorySampler = BenchmarkMemorySampler()
+    }
+
+    mutating func generationStarted() {
+        generationStart = ProcessInfo.processInfo.systemUptime
+        lastTokenTime = generationStart
+    }
+
+    mutating func tokenGenerated(isEndOfSequence: Bool) {
+        lastTokenTime = ProcessInfo.processInfo.systemUptime
+        if firstTokenTime == nil { firstTokenTime = lastTokenTime }
+        if !isEndOfSequence { tokenCount += 1 }
+    }
+
+    mutating func stop() {
+        _ = stopMemorySampling()
+    }
+
+    mutating func record(outputWords: Int, modelDirectory: URL?) -> BenchmarkReference {
+        let latency = (ProcessInfo.processInfo.systemUptime - captionStart) * 1000
+        let generationSeconds = lastTokenTime - generationStart
+        let thermal: String
+        switch ProcessInfo.processInfo.thermalState {
+        case .nominal: thermal = "nominal"
+        case .fair: thermal = "fair"
+        case .serious: thermal = "serious"
+        case .critical: thermal = "critical"
+        @unknown default: thermal = "unknown"
+        }
+        var modelVersion = "unknown"
+        if let directory = modelDirectory,
+           let data = try? Data(contentsOf: directory.appending(path: "installed-manifest.json")),
+           let manifest = try? JSONDecoder().decode(ModelManifest.self, from: data) {
+            modelVersion = manifest.version
+        }
+        let event = BenchmarkEvent(metrics: CaptionBenchmark(
+            is_cold_run: isColdRun, cold_load_ms: isColdRun ? loadMilliseconds : nil,
+            caption_latency_ms: latency,
+            time_to_first_token_ms: firstTokenTime.map { ($0 - captionStart) * 1000 },
+            generation_ms: generationSeconds * 1000, generated_tokens: tokenCount,
+            tokens_per_second: generationSeconds > 0 ? Double(tokenCount) / generationSeconds : nil,
+            peak_sampled_memory_bytes: stopMemorySampling(),
+            output_words: outputWords, thermal_state: thermal
+        ), modelVersion: modelVersion)
+        Task { await BenchmarkTelemetry.shared.record(event) }
+        return BenchmarkReference(eventID: event.event_id, modelVersion: modelVersion)
+    }
+
+    private mutating func stopMemorySampling() -> UInt64 {
+        let peak = memorySampler?.stop() ?? 0
+        memorySampler = nil
+        return peak
+    }
+}
+
+nonisolated struct BenchmarkReference: Sendable {
+    let eventID: UUID
+    let modelVersion: String
+}
+
+nonisolated struct CaptionFeedbackPayload: Codable, Sendable {
+    let benchmark_event_id: UUID
+    let revision: Int
+    let is_useful: Bool
+    let reasons: [String]
+}
+
 nonisolated struct CaptionBenchmark: Codable, Sendable {
     let is_cold_run: Bool
     let cold_load_ms: Double?
@@ -49,7 +139,10 @@ nonisolated struct CaptionBenchmark: Codable, Sendable {
     let generated_tokens: Int
     let tokens_per_second: Double?
     let peak_sampled_memory_bytes: UInt64
-    let output_characters: Int
+    // Optional fields preserve queued events from older app versions without
+    // inventing a word count from a character count. New events emit words only.
+    var output_words: Int? = nil
+    var output_characters: Int? = nil
     let thermal_state: String
 }
 
@@ -75,6 +168,7 @@ nonisolated struct BenchmarkEvent: Codable, Sendable {
     var metrics: CaptionBenchmark?
     var caption_failure: FailureDetails?
     var download_failure: FailureDetails?
+    var caption_feedback: CaptionFeedbackPayload?
 
     init(metrics: CaptionBenchmark? = nil, modelVersion: String, eventType: String = "caption_benchmark") {
         schema_version = 1
@@ -135,6 +229,20 @@ actor BenchmarkTelemetry {
         events.append(event)
         events = Array(events.suffix(500))
         persist()
+        start()
+    }
+
+    func recordFeedback(_ payload: CaptionFeedbackPayload, modelVersion: String) throws {
+        guard TelemetryConfiguration.internalBenchmarkingEnabled,
+              TelemetryConfiguration.ingestAPIKey != nil,
+              let url = queueURL else { throw CocoaError(.fileWriteUnknown) }
+        start()
+        var event = BenchmarkEvent(modelVersion: modelVersion, eventType: "caption_feedback")
+        event.caption_feedback = payload
+        let updated = Array((events + [event]).suffix(500))
+        let data = try JSONEncoder().encode(updated)
+        try data.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+        events = updated
         start()
     }
 

@@ -13,6 +13,8 @@ struct ContentView: View {
     @State private var modelDownloadSize: String?
     @State private var modelStatus: String?
     @State private var caption: String?
+    @State private var captionID = UUID()
+    @State private var captionBenchmark: BenchmarkReference?
     @State private var errorMessage: String?
     @State private var installationTask: Task<Void, Never>?
 
@@ -310,13 +312,20 @@ struct ContentView: View {
     }
 
     private func resultBubble(_ text: String) -> some View {
-        Text(text)
-            .font(.body.weight(.medium)).foregroundStyle(.black)
-            .padding(.horizontal, 18).padding(.vertical, 14)
+        VStack(alignment: .leading, spacing: 8) {
+            CaptionActions(caption: text, benchmark: captionBenchmark)
+                .id(captionID)
+            ScrollView {
+                Text(text)
+                    .font(.body.weight(.medium)).foregroundStyle(.black)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 18).padding(.vertical, 14)
+            }
+            .frame(maxHeight: 200)
             .background(.white, in: RoundedRectangle(cornerRadius: 18))
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 20).padding(.bottom, 14)
-            .transition(.move(edge: .bottom).combined(with: .opacity))
+        }
+        .padding(.horizontal, 20).padding(.bottom, 14)
+        .transition(.move(edge: .bottom).combined(with: .opacity))
     }
 
     private var telemetryAppState: String {
@@ -331,6 +340,7 @@ struct ContentView: View {
     private func generateCaption() {
         isCaptioning = true
         caption = nil
+        captionBenchmark = nil
         errorMessage = nil
 
         Task {
@@ -343,7 +353,9 @@ struct ContentView: View {
                     await MainActor.run { errorMessage = status }
                 }
                 withAnimation {
-                    caption = generated
+                    captionID = UUID()
+                    captionBenchmark = generated.benchmark
+                    caption = generated.text
                     errorMessage = nil
                 }
             } catch {

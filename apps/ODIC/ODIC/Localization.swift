@@ -1,6 +1,7 @@
 import Foundation
 
-enum L10n {
+// Immutable strings and formatting helpers shared by UI and background actors.
+nonisolated enum L10n {
     // Camera UI
     static let cameraPermissionTitle = String(localized: "camera.permission.title", defaultValue: "Camera Access Required")
     static let cameraPermissionMessage = String(localized: "camera.permission.message", defaultValue: "Allow SceneSense to access the camera in Settings.")

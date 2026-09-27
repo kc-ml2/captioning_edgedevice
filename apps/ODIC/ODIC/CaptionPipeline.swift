@@ -4,6 +4,28 @@ import MLX
 import MLXNN
 import SentencepieceTokenizer
 
+nonisolated private struct ModelWeightIndex: Decodable {
+    let weightMap: [String: String]
+
+    enum CodingKeys: String, CodingKey {
+        case weightMap = "weight_map"
+    }
+
+    var shards: [String] {
+        Set(weightMap.values).sorted()
+    }
+
+    static func load(from directory: URL) throws -> Self {
+        let url = directory.appending(path: "model.safetensors.index.json")
+        return try JSONDecoder().decode(Self.self, from: Data(contentsOf: url))
+    }
+}
+
+nonisolated struct CaptionResult: Sendable {
+    let text: String
+    let benchmark: BenchmarkReference?
+}
+
 actor CaptionPipeline {
     enum PipelineError: LocalizedError {
         case modelNotInstalled
@@ -35,6 +57,8 @@ actor CaptionPipeline {
     private let headDimension = 128
     private let languageLayers = 24
     private let imageToken = -200
+    private let endOfSequenceToken = 2
+    private let maximumGeneratedTokens = 40
     private let quantizationGroupSize = 64
     private let quantizationBits = 4
 
@@ -45,19 +69,15 @@ actor CaptionPipeline {
         image: CGImage,
         question: String = "What objects are visible in the scene?",
         progress: (@Sendable (String) async -> Void)? = nil
-    ) async throws -> String {
+    ) async throws -> CaptionResult {
         guard image.width > 0, image.height > 0 else {
             throw PipelineError.invalidFrame
         }
 
-        let benchmarkEnabled = TelemetryConfiguration.internalBenchmarkingEnabled
-        let cold = weights == nil || tokenizer == nil
-        let loadStart = ProcessInfo.processInfo.systemUptime
+        var benchmark = CaptionBenchmarkSession(isColdRun: weights == nil || tokenizer == nil)
+        defer { benchmark?.stop() }
         try await loadIfNeeded(progress: progress)
-        let loadMilliseconds = (ProcessInfo.processInfo.systemUptime - loadStart) * 1000
-        let captionStart = ProcessInfo.processInfo.systemUptime
-        let memorySampler = benchmarkEnabled ? BenchmarkMemorySampler() : nil
-        defer { _ = memorySampler?.stop() }
+        benchmark?.modelLoaded()
         guard let weights, let tokenizer else {
             throw PipelineError.modelNotInstalled
         }
@@ -94,21 +114,18 @@ actor CaptionPipeline {
         }
 
         await progress?(L10n.creatingDescription)
-        let generationStart = ProcessInfo.processInfo.systemUptime
-        var firstTokenTime: Double?
-        var lastTokenTime = generationStart
+        benchmark?.generationStarted()
         var generated: [Int] = []
-        for _ in 0..<40 {
+        for _ in 0..<maximumGeneratedTokens {
             let normalized = rmsNorm(
                 hidden,
                 try required(weights, "language_model.norm.weight")
             )
             let logits = try linear(normalized, weights, "lm_head.weight")[0, hidden.shape[1] - 1]
             let token = Int(logits.argMax().item(Int32.self))
-            lastTokenTime = ProcessInfo.processInfo.systemUptime
-            if firstTokenTime == nil { firstTokenTime = lastTokenTime }
+            benchmark?.tokenGenerated(isEndOfSequence: token == endOfSequenceToken)
             generated.append(token)
-            if token == 2 || generated.count == 40 { break }
+            if token == endOfSequenceToken || generated.count == maximumGeneratedTokens { break }
 
             hidden = try embed([token], weights).reshaped(1, 1, hiddenSize)
             for layer in 0..<languageLayers {
@@ -128,36 +145,11 @@ actor CaptionPipeline {
         let output = try tokenizer.decode(generated.map { $0 + 1 })
             .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        if benchmarkEnabled {
-            let latency = (ProcessInfo.processInfo.systemUptime - captionStart) * 1000
-            let generationSeconds = lastTokenTime - generationStart
-            let tokenCount = generated.filter { $0 != 2 }.count
-            let thermal: String
-            switch ProcessInfo.processInfo.thermalState {
-            case .nominal: thermal = "nominal"
-            case .fair: thermal = "fair"
-            case .serious: thermal = "serious"
-            case .critical: thermal = "critical"
-            @unknown default: thermal = "unknown"
-            }
-            var modelVersion = "unknown"
-            if let directory = modelDirectory,
-               let data = try? Data(contentsOf: directory.appending(path: "installed-manifest.json")),
-               let manifest = try? JSONDecoder().decode(ModelManifest.self, from: data) {
-                modelVersion = manifest.version
-            }
-            let event = BenchmarkEvent(metrics: CaptionBenchmark(
-                is_cold_run: cold, cold_load_ms: cold ? loadMilliseconds : nil,
-                caption_latency_ms: latency,
-                time_to_first_token_ms: firstTokenTime.map { ($0 - captionStart) * 1000 },
-                generation_ms: generationSeconds * 1000, generated_tokens: tokenCount,
-                tokens_per_second: generationSeconds > 0 ? Double(tokenCount) / generationSeconds : nil,
-                peak_sampled_memory_bytes: memorySampler?.stop() ?? 0,
-                output_characters: output.count, thermal_state: thermal
-            ), modelVersion: modelVersion)
-            Task { await BenchmarkTelemetry.shared.record(event) }
-        }
-        return output
+        let reference = benchmark?.record(
+            outputWords: output.split(whereSeparator: { $0.isWhitespace }).count,
+            modelDirectory: modelDirectory
+        )
+        return CaptionResult(text: output, benchmark: reference)
     }
 
     private func loadIfNeeded(
@@ -171,13 +163,10 @@ actor CaptionPipeline {
         await progress?(L10n.loadingModel)
         Memory.cacheLimit = 20 * 1024 * 1024
         try validateModelConfiguration(directory)
-        let indexURL = directory.appending(path: "model.safetensors.index.json")
-        let data = try Data(contentsOf: indexURL)
-        let object = try JSONSerialization.jsonObject(with: data) as! [String: Any]
-        let weightMap = object["weight_map"] as! [String: String]
+        let index = try ModelWeightIndex.load(from: directory)
         var loaded: [String: MLXArray] = [:]
 
-        for shard in Set(weightMap.values).sorted() {
+        for shard in index.shards {
             loaded.merge(try loadArrays(url: directory.appending(path: shard))) { _, new in new }
         }
 
@@ -220,15 +209,12 @@ actor CaptionPipeline {
 
     private func isValidModel(at directory: URL) -> Bool {
         let fileManager = FileManager.default
-        let indexURL = directory.appending(path: "model.safetensors.index.json")
         let required = ["config.json", "model.safetensors.index.json", "tokenizer.model"]
         guard required.allSatisfy({ fileManager.fileExists(atPath: directory.appending(path: $0).path) }),
-              let data = try? Data(contentsOf: indexURL),
-              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let weightMap = object["weight_map"] as? [String: String] else {
+              let index = try? ModelWeightIndex.load(from: directory) else {
             return false
         }
-        return !weightMap.isEmpty && Set(weightMap.values).allSatisfy {
+        return !index.weightMap.isEmpty && index.shards.allSatisfy {
             fileManager.fileExists(atPath: directory.appending(path: $0).path)
         }
     }

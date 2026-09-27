@@ -1,8 +1,8 @@
 import CryptoKit
 import Foundation
 
-nonisolated struct ModelManifest: Decodable, Sendable {
-    struct File: Decodable, Sendable {
+nonisolated struct ModelManifest: Codable, Sendable {
+    struct File: Codable, Sendable {
         let path: String
         let size: Int64
         let sha256: String
@@ -157,7 +157,7 @@ actor ModelStore {
                 completed += file.size
             }
 
-            let manifestData = try JSONEncoder().encode(EncodableManifest(manifest))
+            let manifestData = try JSONEncoder().encode(manifest)
             try manifestData.write(to: staging.appending(path: "installed-manifest.json"), options: .atomic)
             try activate(staging: staging, installed: installed)
             await progress(.init(message: L10n.installationComplete, completedBytes: manifest.totalSize, totalBytes: manifest.totalSize))
@@ -386,28 +386,5 @@ private final class ModelFileDownloader: NSObject, URLSessionDownloadDelegate, @
         if let error {
             finish(.failure(error))
         }
-    }
-}
-
-// Keeps the wire manifest Decodable-only while allowing the installed copy to be encoded.
-nonisolated private struct EncodableManifest: Encodable {
-    let schemaVersion: Int
-    let model: String
-    let version: String
-    let totalSize: Int64
-    let files: [File]
-
-    struct File: Encodable {
-        let path: String
-        let size: Int64
-        let sha256: String
-    }
-
-    init(_ manifest: ModelManifest) {
-        schemaVersion = manifest.schemaVersion
-        model = manifest.model
-        version = manifest.version
-        totalSize = manifest.totalSize
-        files = manifest.files.map { .init(path: $0.path, size: $0.size, sha256: $0.sha256) }
     }
 }
