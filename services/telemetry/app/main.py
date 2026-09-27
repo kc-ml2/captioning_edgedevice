@@ -60,13 +60,31 @@ class CaptionFailure(StrictModel):
     stage: Literal["capture", "inference"]
 
 
+class CaptionFeedback(StrictModel):
+    # Logical reference only: feedback may arrive before its benchmark event.
+    benchmark_event_id: UUID
+    revision: int = Field(ge=1, strict=True)
+    is_useful: bool = Field(strict=True)
+    reasons: list[Literal[
+        "overall_situation", "identifying_objects", "noticing_missed_details"
+    ]] = Field(default_factory=list, max_length=3)
+
+    @model_validator(mode="after")
+    def validate_reasons(self):
+        if len(self.reasons) != len(set(self.reasons)):
+            raise ValueError("feedback reasons must be unique")
+        if not self.is_useful and self.reasons:
+            raise ValueError("not-useful feedback cannot include reasons")
+        return self
+
+
 ShortString = Annotated[str, Field(min_length=1, max_length=128)]
 
 
 class Event(StrictModel):
     schema_version: Literal[1]
     event_id: UUID
-    event_type: Literal["caption_benchmark", "download_failure", "caption_failure"]
+    event_type: Literal["caption_benchmark", "download_failure", "caption_failure", "caption_feedback"]
     timestamp: datetime
     app_version: ShortString
     build_number: ShortString
@@ -76,6 +94,7 @@ class Event(StrictModel):
     metrics: Metrics | None = None
     download_failure: DownloadFailure | None = None
     caption_failure: CaptionFailure | None = None
+    caption_feedback: CaptionFeedback | None = None
 
     @model_validator(mode="after")
     def validate_payload(self):
@@ -83,7 +102,8 @@ class Event(StrictModel):
             raise ValueError("timestamp must include a timezone")
         payloads = {"caption_benchmark": self.metrics,
                     "download_failure": self.download_failure,
-                    "caption_failure": self.caption_failure}
+                    "caption_failure": self.caption_failure,
+                    "caption_feedback": self.caption_feedback}
         if payloads[self.event_type] is None or sum(value is not None for value in payloads.values()) != 1:
             raise ValueError("event_type must match exactly one payload")
         return self

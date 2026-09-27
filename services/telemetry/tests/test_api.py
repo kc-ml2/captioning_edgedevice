@@ -74,6 +74,61 @@ def test_failure_payloads():
         Event.model_validate(caption | {"caption_failure": details | {"stage": "inference", "message": "private"}})
 
 
+def feedback_sample(**changes):
+    event = sample()
+    del event["metrics"]
+    event["event_type"] = "caption_feedback"
+    event["caption_feedback"] = {
+        "benchmark_event_id": str(uuid4()), "revision": 1, "is_useful": True,
+        "reasons": [], **changes,
+    }
+    return event
+
+
+@pytest.mark.parametrize("changes", [
+    {}, {"is_useful": False},
+    {"reasons": ["overall_situation"]},
+    {"reasons": ["overall_situation", "identifying_objects", "noticing_missed_details"]},
+])
+def test_feedback_payload(changes):
+    event = feedback_sample(**changes)
+    stored = Event.model_validate(event).model_dump(mode="json", exclude_none=True)
+    assert stored["caption_feedback"] == event["caption_feedback"]
+
+
+@pytest.mark.parametrize("changes", [
+    {"is_useful": False, "reasons": ["identifying_objects"]},
+    {"reasons": ["overall_situation", "overall_situation"]},
+    {"reasons": ["unknown"]}, {"reasons": None},
+    {"revision": 0}, {"revision": True}, {"revision": 1.5},
+    {"is_useful": "true"}, {"benchmark_event_id": "invalid"},
+    {"caption_id": str(uuid4())},
+    {"caption": "private text"}, {"image": "private image"},
+])
+def test_invalid_feedback(changes):
+    with pytest.raises(ValidationError):
+        Event.model_validate(feedback_sample(**changes))
+
+
+def test_feedback_payload_exclusivity():
+    event = feedback_sample()
+    for change in [{"metrics": sample()["metrics"]},
+                   {"event_type": "caption_benchmark"}, {"caption_feedback": None}]:
+        with pytest.raises(ValidationError):
+            Event.model_validate(event | change)
+    del event["caption_feedback"]["reasons"]
+    assert Event.model_validate(event).caption_feedback.reasons == []
+
+
+def test_feedback_http_validation():
+    app = create_app()
+    app.state.ingest_key = "a" * 32
+    client = TestClient(app)
+    assert client.post("/v1/events/batch", json={"events": [feedback_sample()]}).status_code == 401
+    assert client.post("/v1/events/batch", headers={"X-Ingest-Key": "a" * 32},
+                       json={"events": [feedback_sample(caption="private")]}).status_code == 422
+
+
 def test_auth_and_body_limit():
     app = create_app()
     app.state.ingest_key = "a" * 32
@@ -87,11 +142,12 @@ def test_auth_and_body_limit():
 
 
 @pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="Requires disposable PostgreSQL")
-def test_postgres_replay():
+@pytest.mark.parametrize("event_factory", [sample, feedback_sample])
+def test_postgres_replay(event_factory):
     os.environ.setdefault("INGEST_API_KEY", "a" * 32)
     with TestClient(create_app()) as client:
         headers = {"X-Ingest-Key": os.environ["INGEST_API_KEY"]}
-        event = sample()
+        event = event_factory()
         assert client.get("/healthz").status_code == 200
         response = client.post("/v1/events/batch", headers=headers, json={"events": [event, event]})
         assert response.status_code == 200

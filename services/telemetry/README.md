@@ -112,6 +112,67 @@ error_category(network/cocoa/posix/application), app_state, stage(capture/infere
 
 배포 시 서버를 먼저 업데이트한 뒤 앱을 배포한다. 기존 서버는 알 수 없는 `output_words`를 거부한다. 스키마 버전은 1을 유지하며 기존 JSONB 데이터는 수정하지 않는다. 분석 시 구버전 이벤트의 누락된 단어 수를 0으로 취급하지 않는다.
 
+## 캡션 피드백 (내부 테스트)
+
+기존 `POST /v1/events/batch`와 `X-Ingest-Key` 인증을 사용한다.
+`schema_version: 1`과 앱·빌드·기기·OS·모델 버전 등의 공통 필드는 그대로 유지하고,
+`event_type`을 `caption_feedback`으로 지정한다. `metrics`나 실패 payload와 함께 보내면 거부한다.
+
+```json
+{
+  "schema_version": 1,
+  "event_id": "da34ef1c-9605-4f0a-810a-b6ed26ed4aaf",
+  "event_type": "caption_feedback",
+  "timestamp": "2026-09-22T12:00:00Z",
+  "app_version": "1.0",
+  "build_number": "3",
+  "device_model": "iPhone17,3",
+  "os_version": "26.5",
+  "model_version": "test-model",
+  "caption_feedback": {
+    "benchmark_event_id": "8d0d494e-197d-427c-9e29-9d3cc7cd1271",
+    "revision": 2,
+    "is_useful": true,
+    "reasons": ["overall_situation", "noticing_missed_details"]
+  }
+}
+```
+
+- `benchmark_event_id`: 해당 캡션의 `caption_benchmark` 이벤트 `event_id`를 재사용한다.
+  별도 캡션 UUID를 생성하지 않으며, 평가 수정에서도 이 참조는 유지한다.
+  UUID 형식만 검증하고 대상 이벤트의 존재 여부는 강제하지 않는다.
+- `revision`: 1부터 시작하는 정수. 도움 여부나 이유를 수정할 때마다 클라이언트가 증가시킨다.
+- `is_useful`: boolean. false이면 이유는 빈 배열이어야 한다.
+- `reasons`: 선택 사항(기본 빈 배열). `overall_situation`(상황 이해),
+  `identifying_objects`(물체 식별), `noticing_missed_details`(놓치기 쉬운 부분 발견).
+  복수 선택 가능하지만 중복·알 수 없는 값은 거부한다.
+- 긍정 응답에 이유가 없어도 유효하다. 피드백이 없는 캡션은 부정 응답으로 취급하지 않는다.
+- 이미지·캡션 원문·자유 입력 필드는 허용하지 않는다.
+
+저장은 기존 `telemetry_events.payload` JSONB를 사용하므로 테이블 변경은 필요 없다.
+평가 변경마다 **새 event_id**로 전체 평가 상태를 전송하고, 네트워크 재전송은
+**동일한 event_id와 payload**를 재사용한다. 같은 ID의 재전송은 기존 데이터에 덮어쓰지 않는다.
+서버는 수정 이력을 보존하며 revision 순서를 강제하거나 누락된 revision을 거부하지 않는다.
+분석할 때는 수신 순서 대신 benchmark_event_id별 가장 큰 revision의 평가만 집계한다.
+클라이언트는 동일 benchmark_event_id/revision에 서로 다른 상태를 생성하지 않아야 한다.
+
+`benchmark_event_id`는 JSONB 내 논리적 참조이며 DB FOREIGN KEY 제약은 걸지 않는다.
+피드백이 먼저 도착하거나 벤치마크가 누락되어도 저장한다. 분석 시 벤치마크의
+`event_id`와 LEFT JOIN하고 대상의 `event_type = 'caption_benchmark'`를 확인한다.
+연결되지 않은 피드백도 보존하며, 성능과 연결된 분석에서는 별도로 구분한다.
+
+서버를 먼저 배포해야 한다. 앱은 벤치마크 event_id와 모델 버전을 파이프라인에서 UI로 전달한다.
+피드백은 한 화면에서 선택 후 ‘피드백 보내기’로 제출한다. 안 도움은 false/빈 이유,
+전반적으로 도움은 true/빈 이유이며 각각 단독 선택이다. 구체적인 세 항목은 서로
+복수 선택 가능하며 true/선택한 이유 배열로 매핑한다. 선택만 하거나 취소하면 전송하지 않는다.
+제출된 선택이 변경될 때마다 revision을 증가시키고, 같은 선택을 다시 제출하면
+새 이벤트를 만들지 않는다. 다시 열면 마지막으로 제출한 선택을 표시한다.
+
+피드백은 기존 benchmark-queue.json에 원자적으로 저장한 뒤 비동기 전송한다.
+UI의 저장 성공은 서버 수신 완료가 아니라 전송 큐 저장 완료를 의미한다.
+기존 큐 정책(최대 500개, 재시도, acknowledged_event_ids 기반 삭제)을 공유한다.
+이전 프로토타입의 CaptionFeedback/*.json은 벤치마크 참조가 없으므로 자동 전송하지 않는다.
+
 ## 내부 테스트용 로컬 키
 
 현재 로컬 환경에는 서버 `.env`의 `INGEST_API_KEY`와 동일한 키를
