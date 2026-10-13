@@ -13,7 +13,7 @@ from app.main import create_app
 def client(monkeypatch):
     monkeypatch.setenv("DASHBOARD_PASSWORD", "dashboard-test-password")
     app = create_app()
-    row = SimpleNamespace(received_at=datetime(2026, 9, 14, tzinfo=timezone.utc),
+    row = SimpleNamespace(event_id="test", received_at=datetime(2026, 9, 14, tzinfo=timezone.utc),
                           event_type="caption_benchmark", payload={
                               "event_id": "test", "app_version": "<script>alert(1)</script>",
                               "model_version": "=1+1", "metrics": {"is_cold_run": False,
@@ -25,6 +25,13 @@ def client(monkeypatch):
     session.scalar.return_value = 1
     session.execute.return_value = MagicMock()
     session.execute.return_value.all.return_value = [row]
+    async def execute(statement):
+        if getattr(statement, "_distinct_on", ()):
+            result = MagicMock()
+            result.all.return_value = []
+            return result
+        return session.execute.return_value
+    session.execute.side_effect = execute
     session.scalars.return_value = MagicMock()
     session.scalars.return_value.all.return_value = ["1.0.0", '<unsafe>"']
     app.state.sessions = MagicMock()
@@ -59,6 +66,8 @@ def test_table_and_exports(client):
     for key in ("event_type", "app_version", "device_model", "model_version"):
         assert f'<select name="{key}">' in response.text
     assert 'name="include_tests"' not in response.text
+    assert 'No feedback yet' not in response.text
+    assert '<tr class="feedback">' not in response.text
     assert '<option value="&lt;unsafe&gt;&quot;">' in response.text
     response = c.get('/admin/?app_version=1.0.0')
     assert '<option value="1.0.0" selected>' in response.text
@@ -76,6 +85,34 @@ def test_table_and_exports(client):
     assert c.get("/admin/export?format=bad").status_code == 422
     session.scalar.return_value = 10001
     assert c.get("/admin/export").status_code == 413
+
+
+def test_linked_feedback(client):
+    c, session = client
+    c.auth = ("admin", "dashboard-test-password")
+    feedback = SimpleNamespace(target="test", received_at=datetime(2026, 9, 15, tzinfo=timezone.utc),
+        payload={"caption_feedback": {"benchmark_event_id": "test", "revision": 2,
+            "is_useful": True, "reasons": ["overall_situation", "noticing_missed_details"]}})
+    async def execute(statement):
+        if getattr(statement, "_distinct_on", ()):
+            result = MagicMock()
+            result.all.return_value = [feedback]
+            return result
+        return session.execute.return_value
+    session.execute.side_effect = execute
+    response = c.get('/admin/')
+    assert response.status_code == 200
+    assert 'Latest feedback' in response.text
+    assert 'Revision 2' in response.text
+    assert 'Overall situation, Noticing missed details' in response.text
+    assert response.text.index('Caption latency (ms)') < response.text.index('Latest feedback')
+    row = session.execute.return_value.all.return_value[0]
+    row.event_type = 'caption_feedback'
+    row.payload = feedback.payload
+    response = c.get('/admin/?event_type=caption_feedback')
+    assert 'Benchmark ID: test' in response.text
+    assert '<strong>Useful</strong>' in response.text
+    assert 'Latest feedback ·' not in response.text
 
 
 def test_csv_formula_protection():

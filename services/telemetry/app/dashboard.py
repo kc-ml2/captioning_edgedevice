@@ -10,7 +10,7 @@ from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
-from sqlalchemy import func, select, text
+from sqlalchemy import Integer, cast, func, select, text
 from starlette.responses import HTMLResponse, Response
 
 security = HTTPBasic(auto_error=False)
@@ -77,6 +77,22 @@ def csv_safe(value):
     return value
 
 
+REASON_LABELS = {
+    "overall_situation": "Overall situation",
+    "identifying_objects": "Identifying objects",
+    "noticing_missed_details": "Noticing missed details",
+}
+
+
+def feedback_html(payload):
+    feedback = payload["caption_feedback"]
+    useful = "Useful" if feedback["is_useful"] else "Not useful"
+    reasons = ", ".join(REASON_LABELS.get(value, value) for value in feedback.get("reasons", []))
+    return (f'<strong>{useful}</strong> · Revision {escape(str(feedback["revision"]))}'
+            f'<br>Reasons: {escape(reasons or "None selected")}'
+            f'<br>Benchmark ID: {escape(str(feedback["benchmark_event_id"]))}')
+
+
 def make_router(model):
     router = APIRouter(prefix="/admin", dependencies=[Depends(authenticate)])
 
@@ -93,6 +109,25 @@ def make_router(model):
                         .order_by(model.received_at.desc(), model.event_id.desc())
                         .limit(limit).offset(offset))).all()
         return count, rows
+
+    async def latest_feedback(request, rows):
+        ids = [str(row.event_id) for row in rows if row.event_type == "caption_benchmark"]
+        if not ids:
+            return {}
+        target = model.payload["caption_feedback"]["benchmark_event_id"].astext
+        revision = cast(model.payload["caption_feedback"]["revision"].astext, Integer)
+        # DISTINCT ON selects one latest revision per benchmark, regardless of page/date filters.
+        statement = (select(target.label("target"), model.payload, model.received_at)
+                     .where(model.event_type == "caption_feedback", target.in_(ids),
+                            model.payload["app_version"].astext != "connectivity-test")
+                     .distinct(target)
+                     .order_by(target, revision.desc(), model.received_at.desc(), model.event_id.desc()))
+        async with request.app.state.sessions() as session:
+            async with session.begin():
+                await session.execute(text("SET TRANSACTION READ ONLY"))
+                await session.execute(text("SET LOCAL statement_timeout = '30s'"))
+                feedback = (await session.execute(statement)).all()
+        return {row.target: row for row in feedback}
 
     async def filter_options(request):
         # Global options stay available when other filters produce no matches.
@@ -131,6 +166,7 @@ def make_router(model):
                 selected = " selected" if value == values[key] else ""
                 choices.append(f'<option value="{escape(value, quote=True)}"{selected}>{escape(value)}</option>')
             inputs += f'<label>{label}<select name="{key}">{"".join(choices)}</select></label>'
+        linked_feedback = await latest_feedback(request, rows)
         body = []
         for row in rows:
             p = row.payload
@@ -141,18 +177,29 @@ def make_router(model):
                      round(m["caption_latency_ms"], 1) if "caption_latency_ms" in m else "—",
                      round(m["tokens_per_second"], 2) if m.get("tokens_per_second") is not None else "—"]
             detail = escape(json.dumps(p, ensure_ascii=False, indent=2))
+            feedback_summary = feedback_html(p) if row.event_type == "caption_feedback" else ""
             body.append("<tr>" + "".join(f"<td>{escape(str(v))}</td>" for v in cells)
-                        + f"<td><details><summary>JSON</summary><pre>{detail}</pre></details></td></tr>")
+                        + f"<td>{feedback_summary}<details><summary>JSON</summary><pre>{detail}</pre></details></td></tr>")
+            if row.event_type == "caption_benchmark":
+                feedback = linked_feedback.get(str(row.event_id))
+                if feedback:
+                    summary = feedback_html(feedback.payload)
+                    received = escape(feedback.received_at.isoformat(timespec="seconds"))
+                    raw = escape(json.dumps(feedback.payload, ensure_ascii=False, indent=2))
+                    content = (f'Latest feedback · {summary}<br>Received at (UTC): {received}'
+                               f'<details><summary>Feedback JSON</summary><pre>{raw}</pre></details>')
+                    body.append(f'<tr class="feedback"><td colspan="9">↳ {content}</td></tr>')
         navigation = (f'<a href="{url("./", page=page-1)}">Previous</a> ' if page > 1 else "")
         if page * 50 < count:
             navigation += f'<a href="{url("./", page=page+1)}">Next</a>'
         html = f'''<!doctype html><html lang="en"><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>SceneSense telemetry</title>
-<style>body{{font:14px system-ui;margin:24px;color:#172033}}form{{display:flex;flex-wrap:wrap;gap:12px;align-items:end}}label{{display:grid;gap:4px}}input,select,button{{padding:8px}}table{{border-collapse:collapse;width:100%;margin:20px 0}}td,th{{padding:10px;border-bottom:1px solid #ddd;text-align:left}}.table{{overflow:auto}}pre{{max-width:600px;max-height:400px;overflow:auto}}a{{margin-right:16px}}</style>
+<style>body{{font:14px system-ui;margin:24px;color:#172033}}form{{display:flex;flex-wrap:wrap;gap:12px;align-items:end}}label{{display:grid;gap:4px}}input,select,button{{padding:8px}}table{{border-collapse:collapse;width:100%;margin:20px 0}}td,th{{padding:10px;border-bottom:1px solid #ddd;text-align:left}}.feedback td{{background:#f1f5f9;padding-left:28px}}.table{{overflow:auto}}pre{{max-width:600px;max-height:400px;overflow:auto}}a{{margin-right:16px}}</style>
 <h1>SceneSense telemetry</h1><p>Filtered by receipt time · UTC · Connectivity-test events excluded</p>
 <form method="get">{inputs}<button>Apply filters</button><a href="./">Reset</a></form>
-<p>{count:,} events · Page {page} · 50 events per page</p>
-<p><a href="{url('export', format='csv')}">Download CSV</a><a href="{url('export', format='jsonl')}">Download JSONL</a>All matching events · Up to {MAX_EXPORT:,} events</p>
+<p>{count:,} events · Page {page} · 50 events per page (linked feedback rows are additional)</p>
+<p>Benchmarks show the highest feedback revision, including feedback outside the current filters. Individual feedback events remain visible in the event list.</p>
+<p><a href="{url('export', format='csv')}">Download CSV</a><a href="{url('export', format='jsonl')}">Download JSONL</a>All matching events · Up to {MAX_EXPORT:,} events. Exports contain filtered original events only, not additional linked feedback.</p>
 <div class="table"><table><thead><tr><th>Received at (UTC)</th><th>Event type</th><th>App version</th><th>Device model</th><th>Model version</th><th>Run type</th><th>Caption latency (ms)</th><th>Tokens/s</th><th>Details</th></tr></thead><tbody>{''.join(body) or '<tr><td colspan="9">No events found.</td></tr>'}</tbody></table></div>{navigation}</html>'''
         return HTMLResponse(html, headers=HEADERS)
 
