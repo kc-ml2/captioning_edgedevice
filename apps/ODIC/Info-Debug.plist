@@ -2,14 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>ODICModelBaseURL</key>
-    <string>$(ODIC_MODEL_BASE_URL)</string>
-    <key>NSLocalNetworkUsageDescription</key>
-    <string>Connect to the development server on your local network for internal testing.</string>
-    <key>NSAppTransportSecurity</key>
-    <dict>
-        <key>NSAllowsLocalNetworking</key>
-        <true/>
-    </dict>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<key>ODICModelBaseURL</key>
+	<string>$(ODIC_MODEL_BASE_URL)</string>
 </dict>
 </plist>
