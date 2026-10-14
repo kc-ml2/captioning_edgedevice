@@ -1,5 +1,6 @@
 import AVFoundation
 import Combine
+import OSLog
 import SwiftUI
 
 /// One instance per displayed caption. Never persists the caption or image.
@@ -177,6 +178,7 @@ final class CaptionSpeech: NSObject, ObservableObject, AVSpeechSynthesizerDelega
     @Published private(set) var outputVolume: Float = AVAudioSession.sharedInstance().outputVolume
     private var volumeObservation: NSKeyValueObservation?
     private let synthesizer = AVSpeechSynthesizer()
+    private let logger = Logger(subsystem: "com.ml2.scenesense", category: "CaptionSpeech")
     private var spokenPrefix = ""
     private var streamingStopped = false
 
@@ -213,16 +215,10 @@ final class CaptionSpeech: NSObject, ObservableObject, AVSpeechSynthesizerDelega
     override init() {
         super.init()
         synthesizer.delegate = self
-        // Ambient respects the silent switch. iOS does not expose its state;
-        // outputVolume alone must not be presented as proof of audible output.
+        // Caption speech is core output: play even with the silent switch on,
+        // at the user's media volume, without stopping other apps' audio.
         synthesizer.usesApplicationAudioSession = true
         let session = AVAudioSession.sharedInstance()
-        do {
-            try session.setCategory(.ambient, mode: .default)
-            try session.setActive(true)
-        } catch {
-            // Retain system speech behavior if session configuration is unavailable.
-        }
         volumeObservation = session.observe(\.outputVolume, options: [.initial, .new]) { [weak self] session, _ in
             let volume = session.outputVolume
             Task { @MainActor [weak self] in self?.outputVolume = volume }
@@ -240,6 +236,17 @@ final class CaptionSpeech: NSObject, ObservableObject, AVSpeechSynthesizerDelega
 
     func speak(_ text: String) {
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        let session = AVAudioSession.sharedInstance()
+        do {
+            try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
+            try session.setActive(true)
+            outputVolume = session.outputVolume
+            let route = session.currentRoute.outputs.map { $0.portType.rawValue }.joined(separator: ",")
+            logger.debug("Speech session active: volume=\(session.outputVolume), route=\(route, privacy: .public)")
+        } catch {
+            logger.error("Speech audio session activation failed: \(error.localizedDescription, privacy: .public)")
+            return
+        }
         // Captions currently use English regardless of the UI language.
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = AVSpeechSynthesisVoice(language: "en-US")

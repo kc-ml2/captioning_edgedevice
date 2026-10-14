@@ -80,6 +80,8 @@ final class CameraModel: ObservableObject {
         do {
             let input = try AVCaptureDeviceInput(device: camera)
             session.beginConfiguration()
+            // Photo capture has no audio input; speech owns the app audio session.
+            session.automaticallyConfiguresApplicationAudioSession = false
             session.sessionPreset = .photo
 
             guard session.canAddInput(input) else {
