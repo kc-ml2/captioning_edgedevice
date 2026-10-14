@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 import Darwin
 
 /// Samples process physical footprint. The sampled peak can miss short-lived spikes.
@@ -191,7 +192,7 @@ nonisolated struct BenchmarkEvent: Codable, Sendable {
 /// Internal-test only. Bounded, atomic local JSON queue; no images or caption text.
 actor BenchmarkTelemetry {
     static let shared = BenchmarkTelemetry()
-    private let endpoint = URL(string: "https://scenesense.ml2-alpha.com/v1/events/batch")!
+    private let endpoint = TelemetryConfiguration.baseURL.appending(path: "v1/events/batch")
     private var worker: Task<Void, Never>?
     private var events: [BenchmarkEvent] = []
     private var loaded = false
@@ -205,7 +206,12 @@ actor BenchmarkTelemetry {
     private var queueURL: URL? {
         guard let directory = try? FileManager.default.url(for: .applicationSupportDirectory,
             in: .userDomainMask, appropriateFor: nil, create: true) else { return nil }
-        return directory.appending(path: "benchmark-queue.json")
+        let base = TelemetryConfiguration.baseURL.absoluteString
+        if base == "https://scenesense.ml2-alpha.com" {
+            return directory.appending(path: "benchmark-queue.json")
+        }
+        let suffix = SHA256.hash(data: Data(base.utf8)).map { String(format: "%02x", $0) }.joined()
+        return directory.appending(path: "benchmark-queue-\(suffix).json")
     }
 
     func start() {

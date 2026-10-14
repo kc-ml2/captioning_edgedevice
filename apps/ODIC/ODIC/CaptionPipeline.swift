@@ -68,7 +68,8 @@ actor CaptionPipeline {
     func caption(
         image: CGImage,
         question: String = "What objects are visible in the scene?",
-        progress: (@Sendable (String) async -> Void)? = nil
+        progress: (@Sendable (String) async -> Void)? = nil,
+        partialCaption: (@Sendable (String) async -> Void)? = nil
     ) async throws -> CaptionResult {
         guard image.width > 0, image.height > 0 else {
             throw PipelineError.invalidFrame
@@ -125,6 +126,12 @@ actor CaptionPipeline {
             let token = Int(logits.argMax().item(Int32.self))
             benchmark?.tokenGenerated(isEndOfSequence: token == endOfSequenceToken)
             generated.append(token)
+            if let partialCaption {
+                let partial = try tokenizer.decode(generated.filter { $0 != endOfSequenceToken }.map { $0 + 1 })
+                    .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                await partialCaption(partial)
+            }
             if token == endOfSequenceToken || generated.count == maximumGeneratedTokens { break }
 
             hidden = try embed([token], weights).reshaped(1, 1, hiddenSize)

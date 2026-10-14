@@ -37,6 +37,7 @@ xcuserdata/
 
 # Internal telemetry credentials (bundled locally, never committed)
 /apps/ODIC/ODIC/TelemetrySecrets.plist
+/apps/ODIC/ODIC/TelemetrySecrets-Debug.plist
 
 # Local environment
 .env

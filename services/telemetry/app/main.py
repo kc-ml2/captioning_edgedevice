@@ -1,4 +1,4 @@
-"""Telemetry ingestion and protected dashboard. Never accept images or captions."""
+"""Strict telemetry, protected dashboard and separately authenticated internal shares."""
 import hmac
 import os
 from contextlib import asynccontextmanager
@@ -8,7 +8,7 @@ from uuid import UUID
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from sqlalchemy import DateTime, String, func, text
+from sqlalchemy import DateTime, String, func, text, select
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PGUUID, insert
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -136,6 +136,15 @@ class BodyLimitMiddleware:
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
             return await self.app(scope, receive, send)
+        limit = MAX_BODY_BYTES
+        if scope.get("path") == "/v1/internal/reviews" and scope.get("method") == "POST":
+            from .internal_reviews import MAX_INTERNAL_BODY_BYTES, require_key
+            headers = dict(scope.get("headers", []))
+            try:
+                require_key("INTERNAL_REVIEW_API_KEY", headers.get(b"x-internal-review-key", b"").decode("latin1"))
+            except HTTPException as error:
+                return await JSONResponse({"detail": error.detail}, error.status_code)(scope, receive, send)
+            limit = MAX_INTERNAL_BODY_BYTES
         chunks = []
         size = 0
         while True:
@@ -144,7 +153,7 @@ class BodyLimitMiddleware:
                 return
             body = message.get("body", b"")
             size += len(body)
-            if size > MAX_BODY_BYTES:
+            if size > limit:
                 return await JSONResponse({"detail": "Request too large"}, 413)(scope, receive, send)
             chunks.append(body)
             if not message.get("more_body", False):
@@ -197,19 +206,37 @@ def create_app() -> FastAPI:
     async def ingest(batch: Batch, request: Request):
         # Same UUID is accepted once. Replays never overwrite previously stored data.
         unique = {event.event_id: event for event in batch.events}
-        rows = [{"event_id": event.event_id, "event_type": event.event_type,
-                 "payload": event.model_dump(mode="json", exclude_none=True)}
-                for event in unique.values()]
-        statement = insert(StoredEvent).values(rows).on_conflict_do_nothing(
-            index_elements=[StoredEvent.event_id]
-        ).returning(StoredEvent.event_id)
+        inserted = 0
         async with request.app.state.sessions() as session:
             async with session.begin():
-                inserted = len((await session.execute(statement)).all())
+                # Serialize by caption, including batches, without requiring the
+                # benchmark to have arrived. Sorted locks avoid batch deadlocks.
+                targets = sorted({str(e.caption_feedback.benchmark_event_id)
+                                  for e in unique.values() if e.caption_feedback})
+                for target in targets:
+                    await session.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
+                                          {"key": "feedback:" + target})
+                for event in unique.values():
+                    if event.caption_feedback:
+                        target = str(event.caption_feedback.benchmark_event_id)
+                        existing = await session.scalar(select(StoredEvent.event_id).where(
+                            StoredEvent.event_type == "caption_feedback",
+                            StoredEvent.payload["caption_feedback"]["benchmark_event_id"].astext == target,
+                        ).limit(1))
+                        if existing is not None:
+                            continue
+                    statement = insert(StoredEvent).values(
+                        event_id=event.event_id, event_type=event.event_type,
+                        payload=event.model_dump(mode="json", exclude_none=True),
+                    ).on_conflict_do_nothing(index_elements=[StoredEvent.event_id]).returning(StoredEvent.event_id)
+                    inserted += len((await session.execute(statement)).all())
+        # Acknowledge ignored later ratings as well so older clients do not retry forever.
         return {"received": len(batch.events), "inserted": inserted,
                 "duplicates": len(batch.events) - inserted,
                 "acknowledged_event_ids": [str(event_id) for event_id in unique]}
 
+    from .internal_reviews import router
+    app.include_router(router)
     return app
 
 

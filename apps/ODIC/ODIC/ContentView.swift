@@ -3,6 +3,7 @@ import SwiftUI
 struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @StateObject private var camera = CameraModel()
+    @StateObject private var speech = CaptionSpeech()
     @State private var isCheckingModel = true
     @State private var isCaptioning = false
     @State private var isInstallingModel = false
@@ -15,6 +16,7 @@ struct ContentView: View {
     @State private var caption: String?
     @State private var captionID = UUID()
     @State private var captionBenchmark: BenchmarkReference?
+    @State private var captionSourceImage: CGImage?
     @State private var errorMessage: String?
     @State private var installationTask: Task<Void, Never>?
 
@@ -272,6 +274,18 @@ struct ContentView: View {
                 Text("On-Device Image Captioning").font(.caption2).foregroundStyle(.white.opacity(0.7))
             }
             Spacer()
+            Button { speech.toggle(caption ?? "") } label: {
+                Image(systemName: speech.outputVolume == 0 ? "speaker.slash.fill"
+                      : speech.isSpeaking ? "speaker.wave.2.fill" : "speaker.fill")
+                    .font(.system(size: 16, weight: .semibold))
+                    .frame(width: 44, height: 44)
+                    .background(.ultraThinMaterial, in: Circle())
+            }
+            .buttonStyle(.plain)
+            .disabled(caption?.isEmpty != false)
+            .accessibilityLabel(speech.isSpeaking ? Text("Stop reading") : Text("Read aloud"))
+            .accessibilityValue(speech.outputVolume == 0 ? Text("Device volume is zero")
+                                 : speech.isSpeaking ? Text("Reading caption") : Text("Ready to read"))
             Image(systemName: "lock.shield.fill")
                 .font(.system(size: 16, weight: .semibold))
                 .padding(10).background(.ultraThinMaterial, in: Circle())
@@ -313,7 +327,7 @@ struct ContentView: View {
 
     private func resultBubble(_ text: String) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            CaptionActions(caption: text, benchmark: captionBenchmark)
+            CaptionActions(caption: text, benchmark: captionBenchmark, isGenerating: isCaptioning, sourceImage: captionSourceImage, speech: speech)
                 .id(captionID)
             ScrollView {
                 Text(text)
@@ -340,7 +354,9 @@ struct ContentView: View {
     private func generateCaption() {
         isCaptioning = true
         caption = nil
+        captionID = UUID()
         captionBenchmark = nil
+        captionSourceImage = nil
         errorMessage = nil
 
         Task {
@@ -349,16 +365,24 @@ struct ContentView: View {
             do {
                 let frame = try await camera.captureFrame()
                 stage = "inference"
-                let generated = try await pipeline.caption(image: frame) { status in
+                speech.beginCaption()
+                let generated = try await pipeline.caption(image: frame, progress: { status in
                     await MainActor.run { errorMessage = status }
-                }
+                }, partialCaption: { partial in
+                    await MainActor.run {
+                        if !partial.isEmpty { caption = partial }
+                    }
+                })
                 withAnimation {
-                    captionID = UUID()
+                    #if INTERNAL_TESTING
+                    captionSourceImage = frame
+                    #endif
                     captionBenchmark = generated.benchmark
                     caption = generated.text
                     errorMessage = nil
                 }
             } catch {
+                caption = nil
                 await BenchmarkTelemetry.recordFailure(error, kind: "caption_failure",
                     startedAt: startedAt, appState: telemetryAppState, stage: stage)
                 errorMessage = error.localizedDescription

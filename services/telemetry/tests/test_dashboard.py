@@ -26,7 +26,7 @@ def client(monkeypatch):
     session.execute.return_value = MagicMock()
     session.execute.return_value.all.return_value = [row]
     async def execute(statement):
-        if getattr(statement, "_distinct_on", ()):
+        if getattr(statement, "_distinct_on", ()) or "row_number()" in str(statement):
             result = MagicMock()
             result.all.return_value = []
             return result
@@ -94,6 +94,10 @@ def test_linked_feedback(client):
         payload={"caption_feedback": {"benchmark_event_id": "test", "revision": 2,
             "is_useful": True, "reasons": ["overall_situation", "noticing_missed_details"]}})
     async def execute(statement):
+        if "row_number()" in str(statement):
+            result = MagicMock()
+            result.all.return_value = []
+            return result
         if getattr(statement, "_distinct_on", ()):
             result = MagicMock()
             result.all.return_value = [feedback]

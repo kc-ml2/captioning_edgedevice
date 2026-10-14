@@ -1,29 +1,17 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "Send feedback" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "피드백 보내기" } } } },
-    "Cancel" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "취소" } } } },
-    "Select multiple specific reasons, or choose Not useful or Generally useful alone. No image or caption text is saved with your feedback." : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "구체적인 이유는 여러 개 선택할 수 있어요. ‘도움이 되지 않았어요’와 ‘그냥 전반적으로 도움이 됐어요’는 각각 단독으로 선택해 주세요. 이미지나 캡션 원문은 저장하지 않습니다." } } } },
-    "Generally useful" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "그냥 전반적으로 도움이 됐어요" } } } },
-    "How was this caption useful?" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "이 설명이 어떤 점에서 도움이 되었나요?" } } } },
-    "Choose one to send feedback. No image or caption text is saved with your feedback." : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "가장 해당하는 항목 하나를 선택하면 피드백을 전송합니다. 이미지나 캡션 원문은 저장하지 않습니다." } } } },
-    "Read aloud" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "읽어주기" } } } },
-    "Stop reading" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "읽기 중지" } } } },
-    "Feedback" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "피드백" } } } },
-    "Caption feedback" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "캡션 피드백" } } } },
-    "Was this caption useful?" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "이 설명이 도움이 되었나요?" } } } },
-    "Not useful" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "도움이 되지 않았어요" } } } },
-    "Useful" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "도움이 됐어요" } } } },
-    "How was it useful?" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "어떤 점에서 도움이 되었나요?" } } } },
-    "Understanding the overall situation" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "상황을 전반적으로 이해하는 데" } } } },
-    "Identifying objects" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "주요 물체를 식별하는 데" } } } },
-    "Noticing things I might have missed" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "놓치기 쉬운 부분을 알아차리는 데" } } } },
-    "Optional. Select all that apply. Your useful rating is saved even without a reason." : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "선택 사항이며 여러 개를 선택할 수 있어요. 이유를 선택하지 않아도 긍정 평가는 저장돼요." } } } },
-    "No image or caption text is saved with your feedback." : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "이미지나 캡션 원문은 저장하지 않습니다." } } } },
-    "Done" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "완료" } } } },
-    "Couldn't save feedback" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "피드백을 저장하지 못했어요" } } } },
-    "Please try again. Your latest change was not saved." : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "다시 시도해 주세요. 마지막 변경 사항은 저장되지 않았어요." } } } },
-    "OK" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "확인" } } } },
+    "Attach the caption source photo" : {
+      "comment" : "Attach the source photo used to generate this caption.",
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "캡션 생성에 사용한 사진 첨부"
+          }
+        }
+      }
+    },
     "camera.error.capture_failed" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -160,6 +148,26 @@
         }
       }
     },
+    "Cancel" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "취소"
+          }
+        }
+      }
+    },
+    "Caption feedback" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "캡션 피드백"
+          }
+        }
+      }
+    },
     "caption.generate" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -292,6 +300,109 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "버튼을 눌러 장면을 설명해 보세요"
+          }
+        }
+      }
+    },
+    "Choose one to send feedback. No image or caption text is saved with your feedback." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "가장 해당하는 항목 하나를 선택하면 피드백을 전송합니다. 이미지나 캡션 원문은 저장하지 않습니다."
+          }
+        }
+      }
+    },
+    "Couldn't save feedback" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "피드백을 저장하지 못했어요"
+          }
+        }
+      }
+    },
+    "Device volume is zero" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "기기 볼륨이 0입니다"
+          }
+        }
+      }
+    },
+    "Done" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "완료"
+          }
+        }
+      }
+    },
+    "Enter your comment here." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "여기에 입력해 주세요."
+          }
+        }
+      }
+    },
+    "Feedback" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "피드백"
+          }
+        }
+      }
+    },
+    "Generally useful" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "그냥 전반적으로 도움이 됐어요"
+          }
+        }
+      }
+    },
+    "How was it useful?" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "어떤 점에서 도움이 되었나요?"
+          }
+        }
+      }
+    },
+    "How was this caption useful?" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 설명이 어떤 점에서 도움이 되었나요?"
+          }
+        }
+      }
+    },
+    "Identifying objects" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "주요 물체를 식별하는 데"
           }
         }
       }
@@ -687,9 +798,61 @@
         }
       }
     },
+    "No image or caption text is saved with your feedback." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이미지나 캡션 원문은 저장하지 않습니다."
+          }
+        }
+      }
+    },
+    "Not useful" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "도움이 되지 않았어요"
+          }
+        }
+      }
+    },
+    "Noticing things I might have missed" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "놓치기 쉬운 부분을 알아차리는 데"
+          }
+        }
+      }
+    },
+    "OK" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "확인"
+          }
+        }
+      }
+    },
     "On-Device Image Captioning" : {
       "comment" : "A description of the app.",
       "isCommentAutoGenerated" : true
+    },
+    "Optional. Select all that apply. Your useful rating is saved even without a reason." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "선택 사항이며 여러 개를 선택할 수 있어요. 이유를 선택하지 않아도 긍정 평가는 저장돼요."
+          }
+        }
+      }
     },
     "pipeline.error.four_bit_required" : {
       "extractionState" : "extracted_with_value",
@@ -772,6 +935,151 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "지원하지 않는 모델이에요: %@"
+          }
+        }
+      }
+    },
+    "Please try again. Your latest change was not saved." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "다시 시도해 주세요. 마지막 변경 사항은 저장되지 않았어요."
+          }
+        }
+      }
+    },
+    "Read aloud" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "읽어주기"
+          }
+        }
+      }
+    },
+    "Reading caption" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "캡션을 읽는 중입니다"
+          }
+        }
+      }
+    },
+    "Ready to read" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "읽기 대기 중입니다"
+          }
+        }
+      }
+    },
+    "Result to share" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "함께 확인할 결과"
+          }
+        }
+      }
+    },
+    "Review comment" : {
+      "comment" : "A label for the review comment text field.",
+      "isCommentAutoGenerated" : true
+    },
+    "Review could not be sent" : {
+      "comment" : "A title for an alert that a review could not be sent.",
+      "isCommentAutoGenerated" : true
+    },
+    "Send feedback" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "피드백 보내기"
+          }
+        }
+      }
+    },
+    "Share this result and your comment with the team. This is not a caption rating. The photo is sent only when attached." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 결과와 의견을 팀에 공유합니다. 캡션 품질 평가에는 포함되지 않습니다. 사진은 첨부를 선택한 경우에만 전송합니다."
+          }
+        }
+      }
+    },
+    "Share with team" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "팀에 공유"
+          }
+        }
+      }
+    },
+    "Stop reading" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "읽기 중지"
+          }
+        }
+      }
+    },
+    "Try sending again. Closing this screen discards the draft; a previous request may already have reached the server." : {
+      "comment" : "A message displayed in an alert when sending a review fails.",
+      "isCommentAutoGenerated" : true
+    },
+    "Understanding the overall situation" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "상황을 전반적으로 이해하는 데"
+          }
+        }
+      }
+    },
+    "Useful" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "도움이 됐어요"
+          }
+        }
+      }
+    },
+    "Was this caption useful?" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 설명이 도움이 되었나요?"
+          }
+        }
+      }
+    },
+    "You can select Generally useful together with specific reasons. Not useful must be selected alone. No image or caption text is saved with your feedback." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "‘그냥 전반적으로 도움이 됐어요’와 세부 이유를 함께 선택할 수 있어요. 세부 이유는 여러 개 선택할 수 있으며, ‘도움이 되지 않았어요’만 단독으로 선택해 주세요. 이미지나 캡션 원문은 저장하지 않습니다."
           }
         }
       }

@@ -1,0 +1,8 @@
+# Explicit local-development override. Never use this file for deployment.
+# Restrict to this Mac by default; override LOCAL_API_BIND_ADDRESS for trusted LAN tests.
+services:
+  api:
+    ports: !override
+      - "${LOCAL_API_BIND_ADDRESS:-127.0.0.1}:${API_PORT:-18000}:8000"
+    environment:
+      DASHBOARD_PASSWORD: local-dev-only

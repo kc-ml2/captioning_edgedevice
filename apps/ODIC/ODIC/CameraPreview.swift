@@ -132,7 +132,18 @@ private final class PhotoCaptureDelegate: NSObject, AVCapturePhotoCaptureDelegat
             return
         }
         guard let data = photo.fileDataRepresentation(),
-              let image = UIImage(data: data)?.cgImage else {
+              let source = UIImage(data: data) else {
+            completion(.failure(CameraError.captureFailed))
+            return
+        }
+        // Bake EXIF orientation into pixels before discarding UIImage metadata.
+        // The same upright frame is used for inference and internal attachments.
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let normalized = UIGraphicsImageRenderer(size: source.size, format: format).image { _ in
+            source.draw(in: CGRect(origin: .zero, size: source.size))
+        }
+        guard let image = normalized.cgImage else {
             completion(.failure(CameraError.captureFailed))
             return
         }

@@ -7,6 +7,7 @@ import os
 from datetime import date, datetime, time, timedelta, timezone
 from html import escape
 from urllib.parse import urlencode
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
@@ -16,7 +17,7 @@ from starlette.responses import HTMLResponse, Response
 security = HTTPBasic(auto_error=False)
 MAX_EXPORT = 10000
 HEADERS = {"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
-           "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'"}
+           "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; img-src 'self'; frame-ancestors 'none'"}
 
 
 def authenticate(credentials: HTTPBasicCredentials | None = Depends(security)):
@@ -96,8 +97,10 @@ def feedback_html(payload):
 def make_router(model):
     router = APIRouter(prefix="/admin", dependencies=[Depends(authenticate)])
 
-    async def load(request, values, limit, offset=0):
+    async def load(request, values, limit, offset=0, grouped=False):
         where = conditions(model, values)
+        if grouped and not values["event_type"]:
+            where.append(model.event_type != "caption_feedback")
         async with request.app.state.sessions() as session:
             async with session.begin():
                 await session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
@@ -129,6 +132,28 @@ def make_router(model):
                 feedback = (await session.execute(statement)).all()
         return {row.target: row for row in feedback}
 
+    async def linked_reviews(request, rows):
+        from app.internal_reviews import StoredReview
+        ids = [row.event_id for row in rows if row.event_type == "caption_benchmark"]
+        if not ids:
+            return {}
+        # Display one internal response; retain legacy history without deleting it.
+        ranked = select(StoredReview.review_id, StoredReview.benchmark_event_id,
+            StoredReview.received_at, StoredReview.payload, StoredReview.image_key,
+            func.row_number().over(partition_by=StoredReview.benchmark_event_id,
+                order_by=(StoredReview.received_at.desc(), StoredReview.review_id.desc())).label("rank")
+        ).where(StoredReview.benchmark_event_id.in_(ids)).subquery()
+        async with request.app.state.sessions() as session:
+            async with session.begin():
+                await session.execute(text("SET TRANSACTION READ ONLY"))
+                await session.execute(text("SET LOCAL statement_timeout = '30s'"))
+                reviews = (await session.execute(select(ranked).where(ranked.c.rank <= 1)
+                    .order_by(ranked.c.received_at.desc()))).all()
+        result = {}
+        for review in reviews:
+            result.setdefault(str(review.benchmark_event_id), []).append(review)
+        return result
+
     async def filter_options(request):
         # Global options stay available when other filters produce no matches.
         options = {}
@@ -147,7 +172,7 @@ def make_router(model):
     @router.get("/", response_class=HTMLResponse)
     async def dashboard(request: Request, values: dict = Depends(filters),
                         page: int = Query(default=1, ge=1, le=100000)):
-        count, rows = await load(request, values, 50, (page - 1) * 50)
+        count, rows = await load(request, values, 50, (page - 1) * 50, grouped=True)
         def url(path, **extra):
             params = {k: str(v).lower() if isinstance(v, bool) else str(v)
                       for k, v in values.items() if v is not None and v != ""}
@@ -167,6 +192,7 @@ def make_router(model):
                 choices.append(f'<option value="{escape(value, quote=True)}"{selected}>{escape(value)}</option>')
             inputs += f'<label>{label}<select name="{key}">{"".join(choices)}</select></label>'
         linked_feedback = await latest_feedback(request, rows)
+        reviews_by_benchmark = await linked_reviews(request, rows)
         body = []
         for row in rows:
             p = row.payload
@@ -178,6 +204,19 @@ def make_router(model):
                      round(m["tokens_per_second"], 2) if m.get("tokens_per_second") is not None else "—"]
             detail = escape(json.dumps(p, ensure_ascii=False, indent=2))
             feedback_summary = feedback_html(p) if row.event_type == "caption_feedback" else ""
+            internal_detail = ""
+            if row.event_type == "caption_benchmark":
+                reviews = reviews_by_benchmark.get(str(row.event_id), [])
+                if reviews:
+                    internal_detail = '<strong>Internal feedback</strong>'
+                    for review in reviews:
+                        internal_detail += (f'<section><p>{escape(review.received_at.isoformat())}</p>'
+                            f'<strong>Caption</strong><pre>{escape(str(review.payload.get("caption", "")))}</pre>'
+                            f'<strong>Comment</strong><pre>{escape(str(review.payload.get("comment", "")))}</pre>')
+                        if review.image_key:
+                            internal_detail += (f'<img loading="lazy" src="shares/{review.review_id}/image" '
+                                'alt="Caption source photo" style="max-width:100%;max-height:320px">')
+                        internal_detail += '</section>'
             body.append("<tr>" + "".join(f"<td>{escape(str(v))}</td>" for v in cells)
                         + f"<td>{feedback_summary}<details><summary>JSON</summary><pre>{detail}</pre></details></td></tr>")
             if row.event_type == "caption_benchmark":
@@ -189,19 +228,29 @@ def make_router(model):
                     content = (f'Latest feedback · {summary}<br>Received at (UTC): {received}'
                                f'<details><summary>Feedback JSON</summary><pre>{raw}</pre></details>')
                     body.append(f'<tr class="feedback"><td colspan="9">↳ {content}</td></tr>')
+                if internal_detail:
+                    body.append(f'<tr class="internal-feedback"><td colspan="9">↳ {internal_detail}</td></tr>')
         navigation = (f'<a href="{url("./", page=page-1)}">Previous</a> ' if page > 1 else "")
         if page * 50 < count:
             navigation += f'<a href="{url("./", page=page+1)}">Next</a>'
         html = f'''<!doctype html><html lang="en"><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>SceneSense telemetry</title>
-<style>body{{font:14px system-ui;margin:24px;color:#172033}}form{{display:flex;flex-wrap:wrap;gap:12px;align-items:end}}label{{display:grid;gap:4px}}input,select,button{{padding:8px}}table{{border-collapse:collapse;width:100%;margin:20px 0}}td,th{{padding:10px;border-bottom:1px solid #ddd;text-align:left}}.feedback td{{background:#f1f5f9;padding-left:28px}}.table{{overflow:auto}}pre{{max-width:600px;max-height:400px;overflow:auto}}a{{margin-right:16px}}</style>
+<style>body{{font:14px system-ui;margin:24px;color:#172033}}form{{display:flex;flex-wrap:wrap;gap:12px;align-items:end}}label{{display:grid;gap:4px}}input,select,button{{padding:8px}}table{{border-collapse:collapse;width:100%;margin:20px 0}}td,th{{padding:10px;border-bottom:1px solid #ddd;text-align:left}}.feedback td{{background:#f1f5f9;padding-left:28px}}.internal-feedback td{{background:#fff7ed;padding-left:28px}}.table{{overflow:auto}}pre{{max-width:600px;max-height:400px;overflow:auto}}a{{margin-right:16px}}</style>
 <h1>SceneSense telemetry</h1><p>Filtered by receipt time · UTC · Connectivity-test events excluded</p>
 <form method="get">{inputs}<button>Apply filters</button><a href="./">Reset</a></form>
-<p>{count:,} events · Page {page} · 50 events per page (linked feedback rows are additional)</p>
-<p>Benchmarks show the highest feedback revision, including feedback outside the current filters. Individual feedback events remain visible in the event list.</p>
+<p>{count:,} events · Page {page} · 50 parent events per page (linked feedback rows are additional)</p>
+<p>Default view groups the latest rating and internal comments beneath each benchmark, including linked records outside the current filters. Select caption_feedback in Event type to inspect individual rating events. Unlinked ratings can also be found there.</p>
 <p><a href="{url('export', format='csv')}">Download CSV</a><a href="{url('export', format='jsonl')}">Download JSONL</a>All matching events · Up to {MAX_EXPORT:,} events. Exports contain filtered original events only, not additional linked feedback.</p>
 <div class="table"><table><thead><tr><th>Received at (UTC)</th><th>Event type</th><th>App version</th><th>Device model</th><th>Model version</th><th>Run type</th><th>Caption latency (ms)</th><th>Tokens/s</th><th>Details</th></tr></thead><tbody>{''.join(body) or '<tr><td colspan="9">No events found.</td></tr>'}</tbody></table></div>{navigation}</html>'''
         return HTMLResponse(html, headers=HEADERS)
+
+    @router.get("/shares/{review_id}/image")
+    async def share_image(review_id: UUID, request: Request):
+        # Reuse image retrieval, but authorize via this router's dashboard login.
+        from app.internal_reviews import review_image
+        response = await review_image(review_id, request)
+        response.headers.update(HEADERS)
+        return response
 
     @router.get("/export")
     async def export(request: Request, values: dict = Depends(filters), format: str = "csv"):
