@@ -47,9 +47,5 @@ nonisolated enum TelemetryConfiguration {
         return key
     }
 
-    #if INTERNAL_TESTING
-    static var internalReviewAPIKey: String? { key("InternalReviewAPIKey") }
-    #endif
-
     static var ingestAPIKey: String? { key("IngestAPIKey") }
 }

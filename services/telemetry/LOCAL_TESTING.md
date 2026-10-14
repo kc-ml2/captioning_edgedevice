@@ -10,7 +10,6 @@ Create an ignored `services/telemetry/.env` with local-only credentials:
 ```dotenv
 POSTGRES_PASSWORD=<random-password>
 INGEST_API_KEY=<random-32-plus-character-key>
-INTERNAL_REVIEW_API_KEY=<different-random-32-plus-character-key>
 DASHBOARD_READ_API_KEY=<different-random-32-plus-character-key>
 DASHBOARD_PASSWORD=<local-dashboard-password>
 ```
@@ -48,7 +47,7 @@ TelemetrySecrets-Debug.plist:
 - TelemetryBaseURL: http://localhost:8000 (simulator), or Mac LAN address (device)
 - InternalBenchmarkingEnabled: true
 - IngestAPIKey: local ingest key
-- InternalReviewAPIKey: local upload key
+- Internal review uploads reuse IngestAPIKey; no additional upload key is required.
 
 Non-DEBUG builds read the original TelemetrySecrets.plist and always use the
 production endpoint. Xcode excludes the other environment's plist from each bundle.

@@ -1,13 +1,13 @@
 # Internal caption reviews
 
-Internal reviews use a separate upload credential and table, but share benchmark
-IDs with ordinary telemetry. Existing telemetry still rejects captions/images.
+Internal reviews use a separate endpoint and table, but reuse the ordinary
+INGEST_API_KEY credential and share benchmark IDs with telemetry. Existing telemetry still rejects captions/images.
 
 ## Configuration
 
 Set distinct random credentials of at least 32 characters in server `.env`:
 
-- `INTERNAL_REVIEW_API_KEY`: internal app upload only
+- `INGEST_API_KEY`: shared telemetry and internal-review upload credential
 - `DASHBOARD_READ_API_KEY`: dashboard backend only; NEVER put this in the app
 
 Compose provides `INTERNAL_REVIEW_STORAGE` as a persistent private Docker volume.
@@ -23,8 +23,11 @@ an authorization mechanism suitable for public distribution.
 Add `INTERNAL_TESTING` to **Swift Active Compilation Conditions** of the internal
 build only, preserving `$(inherited)` and existing conditions. External archives
 must not include this flag. Scheme/TestFlight routing is a separate release task.
-Place `InternalReviewAPIKey` in the internal build's ignored `TelemetrySecrets.plist`.
-Never copy internal credentials into external archives.
+The app reuses `IngestAPIKey` from its environment-specific secrets plist.
+No separate InternalReviewAPIKey is needed. The existing X-Internal-Review-Key
+header now carries this shared key; deploy the server change before the new app.
+Build flags hide functionality, not API access: any holder of the ingest key can
+upload internal reviews. Revisit authorization before public distribution.
 
 Use the separate **Share with team** button next to Read aloud and Feedback.
 No rating submission is required. This is a shared result, not a quality vote.

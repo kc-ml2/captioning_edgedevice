@@ -97,7 +97,7 @@ def require_key(variable: str, supplied: str):
 
 
 async def upload_auth(x_internal_review_key: str = Header(default="")):
-    require_key("INTERNAL_REVIEW_API_KEY", x_internal_review_key)
+    require_key("INGEST_API_KEY", x_internal_review_key)
 
 
 async def read_auth(x_dashboard_key: str = Header(default="")):

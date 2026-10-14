@@ -8,7 +8,6 @@ services:
       DATABASE_URL: "postgresql+asyncpg://telemetry:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/telemetry"
       INGEST_API_KEY: "${INGEST_API_KEY:?Set INGEST_API_KEY in .env}"
       DASHBOARD_PASSWORD: "${DASHBOARD_PASSWORD:-}"
-      INTERNAL_REVIEW_API_KEY: "${INTERNAL_REVIEW_API_KEY:-}"
       DASHBOARD_READ_API_KEY: "${DASHBOARD_READ_API_KEY:-}"
       INTERNAL_REVIEW_STORAGE: /data/internal-reviews
     volumes:

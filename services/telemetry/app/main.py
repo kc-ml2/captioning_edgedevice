@@ -141,7 +141,7 @@ class BodyLimitMiddleware:
             from .internal_reviews import MAX_INTERNAL_BODY_BYTES, require_key
             headers = dict(scope.get("headers", []))
             try:
-                require_key("INTERNAL_REVIEW_API_KEY", headers.get(b"x-internal-review-key", b"").decode("latin1"))
+                require_key("INGEST_API_KEY", headers.get(b"x-internal-review-key", b"").decode("latin1"))
             except HTTPException as error:
                 return await JSONResponse({"detail": error.detail}, error.status_code)(scope, receive, send)
             limit = MAX_INTERNAL_BODY_BYTES

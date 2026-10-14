@@ -35,7 +35,7 @@ def test_image_validation():
 
 
 def test_auth_and_limits(monkeypatch):
-    monkeypatch.setenv("INTERNAL_REVIEW_API_KEY", "u" * 32)
+    monkeypatch.setenv("INGEST_API_KEY", "u" * 32)
     monkeypatch.setenv("DASHBOARD_READ_API_KEY", "r" * 32)
     client = TestClient(create_app())
     assert client.post("/v1/internal/reviews", json=sample()).status_code == 401
@@ -48,6 +48,6 @@ def test_auth_and_limits(monkeypatch):
 
 
 def test_disabled_by_default(monkeypatch):
-    monkeypatch.delenv("INTERNAL_REVIEW_API_KEY", raising=False)
+    monkeypatch.delenv("INGEST_API_KEY", raising=False)
     client = TestClient(create_app())
     assert client.post("/v1/internal/reviews", json=sample()).status_code == 503

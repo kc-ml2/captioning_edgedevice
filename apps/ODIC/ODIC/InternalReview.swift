@@ -86,7 +86,7 @@ struct InternalReviewForm: View {
                         comment: comment, model_version: benchmark.modelVersion, image_base64: photo
                     ))
                 }
-                guard let key = TelemetryConfiguration.internalReviewAPIKey else {
+                guard let key = TelemetryConfiguration.ingestAPIKey else {
                     throw CocoaError(.fileReadNoPermission)
                 }
                 var request = URLRequest(url: TelemetryConfiguration.baseURL.appending(path: "v1/internal/reviews"))
