@@ -12,7 +12,6 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from PIL import Image, UnidentifiedImageError
 from pydantic import Field, model_validator
 from sqlalchemy import select, text
-from sqlalchemy.dialects.postgresql import insert
 from starlette.responses import Response
 
 from .main import Base, StoredEvent, StrictModel
@@ -28,14 +27,14 @@ class Review(StrictModel):
     review_id: UUID
     benchmark_event_id: UUID
     caption: str = Field(min_length=1, max_length=10000)
-    comment: str = Field(min_length=1, max_length=5000)
+    comment: str = Field(default="", max_length=5000)
     model_version: str = Field(min_length=1, max_length=128)
     image_base64: str | None = Field(default=None, max_length=5600000)
 
     @model_validator(mode="after")
     def nonblank(self):
-        if not self.comment.strip() or not self.caption.strip():
-            raise ValueError("caption and comment must not be blank")
+        if not self.caption.strip():
+            raise ValueError("caption must not be blank")
         return self
 
 
@@ -110,29 +109,35 @@ router = APIRouter()
 @router.post("/v1/internal/reviews", dependencies=[Depends(upload_auth)])
 async def create_review(review: Review, request: Request):
     from starlette.concurrency import run_in_threadpool
+    data = None
     image_key = None
     if review.image_base64 is not None:
         data = await run_in_threadpool(private_image, review.image_base64)
-        image_key = await run_in_threadpool(write_image, data)
+        image_key = hashlib.sha256(data).hexdigest() + ".jpg"
     payload = review.model_dump(mode="json", exclude={"image_base64"})
     payload["source"] = "internal"
-    statement = insert(StoredReview).values(
-        review_id=review.review_id, benchmark_event_id=review.benchmark_event_id,
-        payload=payload, image_key=image_key,
-    ).on_conflict_do_nothing(index_elements=[StoredReview.review_id]).returning(StoredReview.review_id)
     async with request.app.state.sessions() as session:
         async with session.begin():
-            await session.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
-                                  {"key": "internal-review:" + str(review.benchmark_event_id)})
+            # Shared with the collector. Hold through file write AND commit so GC
+            # never deletes an image belonging to an uncommitted submission.
+            await session.execute(text("SELECT pg_advisory_xact_lock(712034991)"))
             prior = await session.scalar(select(StoredReview.review_id).where(
                 StoredReview.benchmark_event_id == review.benchmark_event_id).limit(1))
             if prior is not None and prior != review.review_id:
                 raise HTTPException(409, "Internal feedback already submitted for this caption")
-            inserted = (await session.execute(statement)).scalar_one_or_none()
-            if inserted is None:
-                existing = await session.get(StoredReview, review.review_id)
+            existing = await session.get(StoredReview, review.review_id)
+            if existing is not None:
                 if existing.payload != payload or existing.image_key != image_key:
                     raise HTTPException(409, "Review ID already has different content")
+                inserted = None
+            else:
+                if data is not None:
+                    await run_in_threadpool(write_image, data)
+                session.add(StoredReview(review_id=review.review_id,
+                    benchmark_event_id=review.benchmark_event_id, payload=payload, image_key=image_key))
+                inserted = review.review_id
+            # A process/DB failure after a write can still leave an orphan.
+            # The periodic collector removes it after a grace period.
     return {"review_id": str(review.review_id), "duplicate": inserted is None}
 
 

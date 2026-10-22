@@ -19,9 +19,20 @@ def sample():
 
 def test_schema():
     Review.model_validate(sample())
-    for change in [{"comment": " "}, {"comment": "x" * 5001}, {"extra": "bad"}, {"feedback": {"is_useful": True}}, {"is_useful": True}]:
+    for change in [{"caption": " "}, {"comment": "x" * 5001}, {"extra": "bad"}, {"feedback": {"is_useful": True}}, {"is_useful": True}]:
         with pytest.raises(ValidationError):
             Review.model_validate(sample() | change)
+
+
+@pytest.mark.parametrize("comment", ["", " ", "A useful detail"])
+def test_optional_comment(comment):
+    assert Review.model_validate(sample() | {"comment": comment}).comment == comment
+
+
+def test_omitted_comment():
+    payload = sample()
+    del payload["comment"]
+    assert Review.model_validate(payload).comment == ""
 
 
 def test_image_validation():

@@ -7,7 +7,6 @@ import SwiftUI
 struct CaptionActions: View {
     let caption: String
     let benchmark: BenchmarkReference?
-    var isGenerating = false
     var sourceImage: CGImage? = nil
     #if INTERNAL_TESTING
     @State private var showingInternalReview = false
@@ -19,7 +18,6 @@ struct CaptionActions: View {
     @State private var isSaving = false
     @State private var showingFeedback = false
     @State private var saveError = false
-    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         HStack {
@@ -54,19 +52,6 @@ struct CaptionActions: View {
             }
         }
         #endif
-        .onAppear { readAutomaticallyIfNeeded() }
-        .onChange(of: caption) { _, _ in readAutomaticallyIfNeeded() }
-        .onChange(of: isGenerating) { _, _ in readAutomaticallyIfNeeded() }
-        .onChange(of: scenePhase) { _, phase in
-            if phase == .active { readAutomaticallyIfNeeded() }
-            else { speech.stop() }
-        }
-        .onDisappear { speech.stop() }
-    }
-
-    private func readAutomaticallyIfNeeded() {
-        guard scenePhase == .active, !showingFeedback else { return }
-        speech.appendStreaming(caption, final: !isGenerating)
     }
 
     private var feedbackSheet: some View {
@@ -168,109 +153,6 @@ private enum FeedbackChoice: String, CaseIterable {
         case .overallSituation: "Understanding the overall situation"
         case .identifyingObjects: "Identifying objects"
         case .noticingMissedDetails: "Noticing things I might have missed"
-        }
-    }
-}
-
-@MainActor
-final class CaptionSpeech: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
-    @Published private(set) var isSpeaking = false
-    @Published private(set) var outputVolume: Float = AVAudioSession.sharedInstance().outputVolume
-    private var volumeObservation: NSKeyValueObservation?
-    private let synthesizer = AVSpeechSynthesizer()
-    private let logger = Logger(subsystem: "com.ml2.scenesense", category: "CaptionSpeech")
-    private var spokenPrefix = ""
-    private var streamingStopped = false
-
-    func beginCaption() {
-        stop()
-        spokenPrefix = ""
-        streamingStopped = false
-    }
-
-    func appendStreaming(_ text: String, final: Bool) {
-        guard !streamingStopped else { return }
-        // Never repeat already queued speech if the tokenizer revises a suffix.
-        guard text.hasPrefix(spokenPrefix) else {
-            streamingStopped = true
-            return
-        }
-        let remainder = String(text.dropFirst(spokenPrefix.count))
-        var boundary: String.Index?
-        if final {
-            boundary = remainder.endIndex
-        } else if let punctuation = remainder.lastIndex(where: { ".!?;:".contains($0) }) {
-            boundary = remainder.index(after: punctuation)
-        } else if remainder.split(whereSeparator: \.isWhitespace).count >= 9 {
-            // Keep the last (potentially incomplete) word until the next update.
-            boundary = remainder.lastIndex(where: \.isWhitespace)
-        }
-        guard let boundary else { return }
-        let chunk = String(remainder[..<boundary])
-        guard !chunk.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        spokenPrefix += chunk
-        speak(chunk)
-    }
-
-    override init() {
-        super.init()
-        synthesizer.delegate = self
-        // Caption speech is core output: play even with the silent switch on,
-        // at the user's media volume, without stopping other apps' audio.
-        synthesizer.usesApplicationAudioSession = true
-        let session = AVAudioSession.sharedInstance()
-        volumeObservation = session.observe(\.outputVolume, options: [.initial, .new]) { [weak self] session, _ in
-            let volume = session.outputVolume
-            Task { @MainActor [weak self] in self?.outputVolume = volume }
-        }
-    }
-
-    func toggle(_ text: String) {
-        if isSpeaking {
-            stop()
-            return
-        }
-        streamingStopped = true
-        speak(text)
-    }
-
-    func speak(_ text: String) {
-        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        let session = AVAudioSession.sharedInstance()
-        do {
-            try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
-            try session.setActive(true)
-            outputVolume = session.outputVolume
-            let route = session.currentRoute.outputs.map { $0.portType.rawValue }.joined(separator: ",")
-            logger.debug("Speech session active: volume=\(session.outputVolume), route=\(route, privacy: .public)")
-        } catch {
-            logger.error("Speech audio session activation failed: \(error.localizedDescription, privacy: .public)")
-            return
-        }
-        // Captions currently use English regardless of the UI language.
-        let utterance = AVSpeechUtterance(string: text)
-        utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
-        isSpeaking = true
-        synthesizer.speak(utterance)
-    }
-
-    func stop() {
-        streamingStopped = true
-        synthesizer.stopSpeaking(at: .immediate)
-        isSpeaking = false
-    }
-
-    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            self.isSpeaking = self.synthesizer.isSpeaking
-        }
-    }
-
-    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            self.isSpeaking = self.synthesizer.isSpeaking
         }
     }
 }

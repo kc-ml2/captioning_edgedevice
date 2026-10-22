@@ -1,7 +1,8 @@
 """Strict telemetry, protected dashboard and separately authenticated internal shares."""
+import asyncio
 import hmac
 import os
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
@@ -179,11 +180,18 @@ def create_app() -> FastAPI:
         app.state.ingest_key = key
         engine = create_async_engine(os.environ["DATABASE_URL"], pool_pre_ping=True)
         app.state.sessions = async_sessionmaker(engine)
+        cleanup = None
         try:
             async with engine.begin() as connection:
                 await connection.run_sync(Base.metadata.create_all)
+            from .image_cleanup import cleanup_loop
+            cleanup = asyncio.create_task(cleanup_loop(app.state.sessions))
             yield
         finally:
+            if cleanup is not None:
+                cleanup.cancel()
+                with suppress(asyncio.CancelledError):
+                    await cleanup
             await engine.dispose()
 
     app = FastAPI(title="SceneSense telemetry", lifespan=lifespan,

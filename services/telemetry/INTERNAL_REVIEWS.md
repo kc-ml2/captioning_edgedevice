@@ -58,7 +58,9 @@ This is independent of the persistent ordinary-feedback queue.
 ```
 
 Optional image: base64 JPEG, at most 4 MiB decoded and 16 megapixels.
-Comment: 1–5000 characters, nonblank. Caption: 1–10000, nonblank.
+Comment: optional, up to 5000 characters; omitted values default to an empty string.
+Caption: 1–10000 characters, nonblank. A caption and photo may be submitted without
+any comment. Photo attachment also remains optional.
 Exact retries return `duplicate: true`; same review_id with different content
 returns 409. Photo bytes are stored privately; only the generated file key is
 stored in the DB. Review payload has server-assigned `source: internal`.
@@ -85,10 +87,12 @@ benchmark_event_id. Do not sum feedback history rows or internal shares as votes
 
 ## Operational limits / retention
 
-Before collecting real photos, agree a retention period and implement scheduled
-purging of expired review rows and unreferenced files. This initial version has
-no automatic retention job. A failed DB transaction or conflicting retry may
-leave an unreferenced content-addressed image, so cleanup must handle orphans.
+Before collecting real photos, agree a retention period for referenced review rows
+and images; these are not automatically expired. Orphan image cleanup runs at
+startup and hourly, deleting only unreferenced SHA-256 JPEG files older than 24 hours.
+Uploads and cleanup share a PostgreSQL advisory transaction lock through commit,
+so in-flight uploads and shared referenced files are protected. Conflicting uploads
+are rejected before writing images. Crash/DB-failure leftovers are collected later.
 Restrict dashboard access to the team; do not publish this endpoint or credential
 through a public dashboard. Storage encryption/access controls and backups are
 deployment responsibilities. No server deployment is performed by these changes.

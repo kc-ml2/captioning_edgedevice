@@ -101,7 +101,7 @@ error_category(network/cocoa/posix/application), app_state, stage(capture/infere
 - caption_latency_ms: 입력 이미지 처리 시작부터 최종 문자열까지. 모델 로딩 제외.
   warm 비교는 is_cold_run=false인 이벤트끼리 수행합니다.
 - time_to_first_token_ms: caption 시작부터 첫 생성 토큰까지.
-- generation_ms: prefill 이후 첫 토큰 선택 시작부터 마지막 생성 토큰 선택까지.
+- generation_ms: prefill 이후 첫 토큰 선택 시작부터 마지막 생성 토큰 선택까지의 체감 wall-clock 시간. 스트리밍 디코딩 및 UI 콜백 대기를 포함하며 기존 정의를 유지한다.
 - generated_tokens: EOS를 제외한 생성 토큰 수.
 - tokens_per_second: generated_tokens / (generation_ms / 1000). 구간이 0이면 null.
 - peak_sampled_memory_bytes: 캡션 실행 구간의 프로세스 메모리 샘플 최대값.

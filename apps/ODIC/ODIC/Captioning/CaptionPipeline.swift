@@ -4,23 +4,6 @@ import MLX
 import MLXNN
 import SentencepieceTokenizer
 
-nonisolated private struct ModelWeightIndex: Decodable {
-    let weightMap: [String: String]
-
-    enum CodingKeys: String, CodingKey {
-        case weightMap = "weight_map"
-    }
-
-    var shards: [String] {
-        Set(weightMap.values).sorted()
-    }
-
-    static func load(from directory: URL) throws -> Self {
-        let url = directory.appending(path: "model.safetensors.index.json")
-        return try JSONDecoder().decode(Self.self, from: Data(contentsOf: url))
-    }
-}
-
 nonisolated struct CaptionResult: Sendable {
     let text: String
     let benchmark: BenchmarkReference?
@@ -59,8 +42,8 @@ actor CaptionPipeline {
     private let imageToken = -200
     private let endOfSequenceToken = 2
     private let maximumGeneratedTokens = 40
-    private let quantizationGroupSize = 64
-    private let quantizationBits = 4
+    private let quantizationGroupSize = ModelConfiguration.groupSize
+    private let quantizationBits = ModelConfiguration.bits
 
     private var weights: [String: MLXArray]?
     private var tokenizer: SentencepieceTokenizer?
@@ -75,6 +58,7 @@ actor CaptionPipeline {
             throw PipelineError.invalidFrame
         }
 
+        try Task.checkCancellation()
         var benchmark = CaptionBenchmarkSession(isColdRun: weights == nil || tokenizer == nil)
         defer { benchmark?.stop() }
         try await loadIfNeeded(progress: progress)
@@ -89,6 +73,7 @@ actor CaptionPipeline {
             throw PipelineError.invalidFrame
         }
 
+        try Task.checkCancellation()
         let pixels = loadPixels(image)
         let imageFeatures = try projector(vision(pixels, weights), weights)
         eval(imageFeatures)
@@ -102,6 +87,7 @@ actor CaptionPipeline {
         await progress?(L10n.understandingScene)
         let prefillLength = hidden.shape[1]
         for layer in 0..<languageLayers {
+            try Task.checkCancellation()
             let result = try languageLayer(
                 hidden,
                 weights,
@@ -118,6 +104,7 @@ actor CaptionPipeline {
         benchmark?.generationStarted()
         var generated: [Int] = []
         for _ in 0..<maximumGeneratedTokens {
+            try Task.checkCancellation()
             let normalized = rmsNorm(
                 hidden,
                 try required(weights, "language_model.norm.weight")
@@ -136,6 +123,7 @@ actor CaptionPipeline {
 
             hidden = try embed([token], weights).reshaped(1, 1, hiddenSize)
             for layer in 0..<languageLayers {
+                try Task.checkCancellation()
                 let result = try languageLayer(
                     hidden,
                     weights,
@@ -149,7 +137,8 @@ actor CaptionPipeline {
             }
         }
 
-        let output = try tokenizer.decode(generated.map { $0 + 1 })
+        try Task.checkCancellation()
+        let output = try tokenizer.decode(generated.filter { $0 != endOfSequenceToken }.map { $0 + 1 })
             .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         let reference = benchmark?.record(
@@ -174,6 +163,7 @@ actor CaptionPipeline {
         var loaded: [String: MLXArray] = [:]
 
         for shard in index.shards {
+            try Task.checkCancellation()
             loaded.merge(try loadArrays(url: directory.appending(path: shard))) { _, new in new }
         }
 
@@ -191,19 +181,15 @@ actor CaptionPipeline {
             if isValidModel(at: url) { return url }
         }
 
-        if let support = try? fileManager.url(
-            for: .applicationSupportDirectory,
-            in: .userDomainMask,
-            appropriateFor: nil,
-            create: true
-        ) {
-            let installed = support.appending(path: "MobileVLM", directoryHint: .isDirectory)
+        if let installed = try? ModelLocation.installedDirectory() {
             if isValidModel(at: installed) { return installed }
         }
 
         #if DEBUG && targetEnvironment(simulator)
         var repository = URL(filePath: #filePath)
-        for _ in 0..<4 { repository.deleteLastPathComponent() }
+        while !FileManager.default.fileExists(atPath: repository.appending(path: "apps/ODIC").path), repository.path != "/" {
+            repository.deleteLastPathComponent()
+        }
         let developmentModel = repository.appending(
             path: "workspace/mobilevlm-mlx/converted-fp16",
             directoryHint: .isDirectory
@@ -227,15 +213,8 @@ actor CaptionPipeline {
     }
 
     private func validateModelConfiguration(_ directory: URL) throws {
-        let data = try Data(contentsOf: directory.appending(path: "config.json"))
-        guard let config = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-              config["weight_dtype"] as? String == "mixed_fp16_q4",
-              let quantization = config["quantization"] as? [String: Any],
-              quantization["bits"] as? Int == quantizationBits,
-              quantization["group_size"] as? Int == quantizationGroupSize,
-              quantization["mode"] as? String == "affine" else {
-            throw PipelineError.unsupportedModel(L10n.fourBitModelRequired)
-        }
+        do { try ModelConfiguration.validate(at: directory) }
+        catch { throw PipelineError.unsupportedModel(L10n.fourBitModelRequired) }
     }
 
     private func required(_ weights: [String: MLXArray], _ name: String) throws -> MLXArray {
@@ -389,6 +368,7 @@ actor CaptionPipeline {
         hidden = try layerNorm(hidden, weights, "\(root).pre_layrnorm")
 
         for layer in 0..<23 {
+            try Task.checkCancellation()
             let prefix = "\(root).encoder.layers.\(layer)"
             let normalized = try layerNorm(hidden, weights, "\(prefix).layer_norm1")
             let query = try affine(normalized, weights, "\(prefix).self_attn.q_proj")

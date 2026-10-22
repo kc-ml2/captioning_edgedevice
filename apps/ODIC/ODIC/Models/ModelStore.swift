@@ -1,27 +1,13 @@
 import CryptoKit
 import Foundation
 
-nonisolated struct ModelManifest: Codable, Sendable {
-    struct File: Codable, Sendable {
-        let path: String
-        let size: Int64
-        let sha256: String
-    }
-
-    let schemaVersion: Int
-    let model: String
-    let version: String
-    let totalSize: Int64
-    let files: [File]
-}
-
 nonisolated private struct LatestModel: Decodable {
     let schemaVersion: Int
     let version: String
     let manifestPath: String
 }
 
-enum ModelInstallError: LocalizedError {
+nonisolated enum ModelInstallError: LocalizedError {
     case endpointMissing
     case invalidResponse
     case unsupportedManifest
@@ -75,22 +61,29 @@ actor ModelStore {
     private let fileManager = FileManager.default
     private let decoder = JSONDecoder()
     private let metadataSession: URLSession
+    private let directoryOverride: URL?
 
-    init(session: URLSession = .shared) {
+    init(session: URLSession = .shared, directory: URL? = nil) {
         metadataSession = session
+        directoryOverride = directory
     }
 
     var isInstalled: Bool {
         guard let directory = try? installedDirectory(),
               fileManager.fileExists(atPath: directory.appending(path: "installed-manifest.json").path),
-              let data = try? Data(contentsOf: directory.appending(path: "config.json")),
-              let config = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              config["weight_dtype"] as? String == "mixed_fp16_q4",
-              let quantization = config["quantization"] as? [String: Any],
-              quantization["bits"] as? Int == 4,
-              quantization["group_size"] as? Int == 64 else {
-            return false
+              (try? ModelConfiguration.validate(at: directory)) != nil,
+              let manifestData = try? Data(contentsOf: directory.appending(path: "installed-manifest.json")),
+              let manifest = try? decoder.decode(ModelManifest.self, from: manifestData) else { return false }
+        let paths = Set(manifest.files.map(\.path))
+        guard paths.isSuperset(of: ["config.json", "tokenizer.model", "model.safetensors.index.json"]),
+              let index = try? ModelWeightIndex.load(from: directory), !index.weightMap.isEmpty,
+              Set(index.shards).isSubset(of: paths) else { return false }
+        for file in manifest.files {
+            guard let parts = try? safeRelativePath(file.path), file.size > 0,
+                  let attributes = try? fileManager.attributesOfItem(atPath: parts.reduce(directory) { $0.appending(path: $1) }.path),
+                  (attributes[.size] as? NSNumber)?.int64Value == file.size else { return false }
         }
+        try? excludeFromBackup(directory)
         return true
     }
 
@@ -106,7 +99,7 @@ actor ModelStore {
         let installed = try installedDirectory()
         if let current = try? Data(contentsOf: installed.appending(path: "installed-manifest.json")),
            let currentManifest = try? decoder.decode(ModelManifest.self, from: current),
-           currentManifest.version == manifest.version {
+           currentManifest.version == manifest.version, isInstalled {
             await progress(.init(message: L10n.modelReady, completedBytes: manifest.totalSize, totalBytes: manifest.totalSize))
             return
         }
@@ -118,6 +111,7 @@ actor ModelStore {
         )
         try? fileManager.removeItem(at: staging)
         try fileManager.createDirectory(at: staging, withIntermediateDirectories: true)
+        try excludeFromBackup(staging)
 
         do {
             let releaseBase = manifestURL.deletingLastPathComponent()
@@ -177,9 +171,17 @@ actor ModelStore {
               manifest.version == latest.version,
               manifest.totalSize > 0,
               !manifest.files.isEmpty,
-              manifest.files.reduce(Int64(0), { $0 + $1.size }) == manifest.totalSize else {
+              manifest.files.allSatisfy({ $0.size > 0 && $0.size <= manifest.totalSize }),
+              Set(manifest.files.map(\.path)).count == manifest.files.count,
+              manifest.files.reduce(Int64(0), { sum, file in
+                  let result = sum.addingReportingOverflow(file.size)
+                  return result.overflow ? Int64.min : result.partialValue
+              }) == manifest.totalSize else {
             throw ModelInstallError.unsupportedManifest
         }
+        _ = try safeRelativePath(manifest.version)
+        guard !manifest.version.contains("/") else { throw ModelInstallError.unsafePath(manifest.version) }
+        for file in manifest.files { _ = try safeRelativePath(file.path) }
         return (manifestURL, manifest)
     }
 
@@ -194,12 +196,8 @@ actor ModelStore {
     }
 
     private func installedDirectory() throws -> URL {
-        try fileManager.url(
-            for: .applicationSupportDirectory,
-            in: .userDomainMask,
-            appropriateFor: nil,
-            create: true
-        ).appending(path: "MobileVLM", directoryHint: .isDirectory)
+        if let directoryOverride { return directoryOverride }
+        return try ModelLocation.installedDirectory()
     }
 
     private func json<T: Decodable>(at url: URL) async throws -> T {
@@ -260,6 +258,17 @@ actor ModelStore {
         }
     }
 
+    private func excludeFromBackup(_ directory: URL) throws {
+        var url = directory
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        try url.setResourceValues(values)
+    }
+
+    func invalidateInstallation() throws {
+        try fileManager.removeItem(at: installedDirectory().appending(path: "installed-manifest.json"))
+    }
+
     private func activate(staging: URL, installed: URL) throws {
         let backup = installed.deletingLastPathComponent().appending(path: ".MobileVLM-previous")
         try? fileManager.removeItem(at: backup)
@@ -274,117 +283,6 @@ actor ModelStore {
                 try? fileManager.moveItem(at: backup, to: installed)
             }
             throw error
-        }
-    }
-}
-
-private final class ModelFileDownloader: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {
-    typealias ProgressHandler = @Sendable (Int64, Int64) async -> Void
-
-    private let source: URL
-    private let destination: URL
-    private let completedBeforeFile: Int64
-    private let totalModelBytes: Int64
-    private let progress: ProgressHandler
-    private var continuation: CheckedContinuation<Void, Error>?
-    private var session: URLSession?
-    private var task: URLSessionDownloadTask?
-    private var result: Result<Void, Error>?
-
-    init(
-        source: URL,
-        destination: URL,
-        completedBeforeFile: Int64,
-        totalModelBytes: Int64,
-        progress: @escaping ProgressHandler
-    ) {
-        self.source = source
-        self.destination = destination
-        self.completedBeforeFile = completedBeforeFile
-        self.totalModelBytes = totalModelBytes
-        self.progress = progress
-    }
-
-    func start() async throws {
-        try Task.checkCancellation()
-        try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { continuation in
-                self.continuation = continuation
-                if let result {
-                    self.continuation = nil
-                    continuation.resume(with: result)
-                    return
-                }
-                let configuration = URLSessionConfiguration.default
-                configuration.waitsForConnectivity = true
-                configuration.allowsConstrainedNetworkAccess = true
-                // Allow longer stalls on slow networks; this is separate from the total download limit.
-                configuration.timeoutIntervalForRequest = 60 * 5
-                configuration.timeoutIntervalForResource = 60 * 60 * 6
-                let session = URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
-                self.session = session
-                let task = session.downloadTask(with: source)
-                self.task = task
-                task.resume()
-            }
-        } onCancel: {
-            self.cancel()
-        }
-    }
-
-    private func cancel() {
-        task?.cancel()
-        finish(.failure(CancellationError()))
-    }
-
-    private func finish(_ result: Result<Void, Error>) {
-        guard self.result == nil else { return }
-        self.result = result
-        task = nil
-        session?.finishTasksAndInvalidate()
-        session = nil
-        guard let continuation else { return }
-        self.continuation = nil
-        continuation.resume(with: result)
-    }
-
-    func urlSession(
-        _ session: URLSession,
-        downloadTask: URLSessionDownloadTask,
-        didWriteData bytesWritten: Int64,
-        totalBytesWritten: Int64,
-        totalBytesExpectedToWrite: Int64
-    ) {
-        let completed = min(totalModelBytes, completedBeforeFile + totalBytesWritten)
-        Task { await progress(completed, totalModelBytes) }
-    }
-
-    func urlSession(
-        _ session: URLSession,
-        downloadTask: URLSessionDownloadTask,
-        didFinishDownloadingTo location: URL
-    ) {
-        do {
-            guard let response = downloadTask.response as? HTTPURLResponse,
-                  (200..<300).contains(response.statusCode) else {
-                throw ModelInstallError.invalidResponse
-            }
-            let fileManager = FileManager.default
-            try? fileManager.removeItem(at: destination)
-            try fileManager.moveItem(at: location, to: destination)
-            finish(.success(()))
-        } catch {
-            finish(.failure(error))
-        }
-    }
-
-    func urlSession(
-        _ session: URLSession,
-        task: URLSessionTask,
-        didCompleteWithError error: Error?
-    ) {
-        if let error {
-            finish(.failure(error))
         }
     }
 }
